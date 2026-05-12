@@ -18,31 +18,6 @@ Travel	Trip journals, itineraries, photos, restaurant reviews, packing lists	Fli
 Woodworking / Maker	Project logs, tool inventory, material notes, techniques, plans	Supplier databases, wood databases, technique tutorials, plan archives
 The vault pattern is the same every time. The content, x402 endpoints, and Claude skills change per domain.
 
-# The Pattern
-
-[Your Knowledge]
-      |
-      v
-  MDX Files in GitHub (structured notes, entries, records)
-      |
-      v
-  Next.js Dashboard on Vercel (private, password-protected)
-      |
-      |--- In-browser editor for live note-taking
-      |--- Cached JSON for live API data
-      |--- Search, filter, browse across all content
-      |
-      v
-  Maintained by:
-      |--- You (edit markdown by hand, in-browser, or in any editor)
-      |--- Claude Code (edit files, commit, push — via skills)
-      |--- Poncho (call x402 endpoints via AgentCash, write results to vault)
-
-  Enriched by:
-      |--- x402 Endpoints (domain-specific research APIs you build and deploy)
-      |--- Claude Skills (workflow recipes that chain endpoint calls into tasks)
-      
-
 # What Makes This Pattern Powerful
 
 Content is just files. MDX in a git repo. No database, no vendor lock-in. You can read your vault with cat. You can edit it with Vim. You can move it anywhere.
