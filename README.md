@@ -42,38 +42,11 @@ The Pattern
   Enriched by:
       |--- x402 Endpoints (domain-specific research APIs you build and deploy)
       |--- Claude Skills (workflow recipes that chain endpoint calls into tasks)
-Infrastructure You'll Need
-Hardware
-Component	What	Why
-Computer	Any machine that runs Claude Code (Mac, Linux, WSL on Windows)	Claude Code operates locally on your repo — editing files, running skills, committing to GitHub. This is your primary workstation.
-Internet	Stable connection	Pushing to GitHub, deploying on Vercel, calling x402 endpoints, using Poncho — all require network access.
-Accounts & Services
-Service	What it does	Cost
-GitHub	Hosts the vault repo. Source of truth for all content.	Free (private repos included)
-Vercel	Deploys the Next.js dashboard. Auto-builds on push to main.	Free tier covers most personal projects. Pro ($20/mo) for password protection via Vercel Auth if you go that route.
-Domain (optional)	Custom domain for your vault (e.g. vault.fishmug.dev)	~$10-15/year via Namecheap, Cloudflare, etc.
-AI & Agent Layer
-Service	What it does	Cost
-Claude Code	Your primary tool for building and maintaining the vault. Edits MDX files, runs skills, commits and pushes, builds features, fixes bugs. Operates locally on the repo.	Claude Pro/Max subscription
-Poncho	Chat-based agent that can call your x402 endpoints via AgentCash. Good for research tasks, quick lookups, and vault updates without opening a terminal.	Poncho Pro plan
-Claude API (optional)	If you add an in-dashboard AI chat feature later. Powers the LLM layer inside the vault itself.	Pay-per-token via Anthropic
-x402 Endpoint Infrastructure
-Component	What it does	Cost
-Vercel (serverless functions)	Hosts your x402 API endpoints as serverless functions. Same platform as the vault — one ecosystem.	Free tier for low volume. Usage-based beyond that.
-x402 middleware	Handles payment protocol on your endpoints. Callers pay per request, you receive revenue.	Part of x402 protocol — no separate cost
-Upstream APIs	The data sources your endpoints wrap: Firecrawl (scraping), IGDB/RAWG (game data), Reddit API, Xbox/OpenXBL, etc.	Varies — some free, some pay-per-call. Your x402 pricing covers these costs + margin.
-OpenAPI spec	Makes your endpoints discoverable via AgentCash search. Agents can find and call your endpoints without manual configuration.	Free — just a JSON/YAML file you write
-Development Tools
-Tool	What it does	Cost
-Node.js / Bun	Runtime for Next.js and serverless functions	Free
-VS Code or any editor	For when you want to edit vault content or code by hand	Free
-Git	Version control — every vault change is a commit	Free
-Tailwind CSS	Styling the dashboard	Free
-Infrastructure Diagram
-
+      
+# Infrastructure Diagram
 
 ┌─────────────────────────────────────────────────────────┐
-│                    YOU (Brian)                           │
+│                    YOU                                  │
 │                                                         │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
 │  │ Browser  │  │ Claude   │  │ Poncho   │              │
@@ -110,7 +83,9 @@ Infrastructure Diagram
 │  Your private│
 │  vault UI    │
 └──────────────┘
-What Makes This Pattern Powerful
+
+# What Makes This Pattern Powerful
+
 Content is just files. MDX in a git repo. No database, no vendor lock-in. You can read your vault with cat. You can edit it with Vim. You can move it anywhere.
 AI operates on plain text. Claude Code doesn't need a special API to update your vault. It reads markdown, writes markdown, and pushes to git. The simplest possible interface.
 Research is a paid service. Your x402 endpoints aren't just for you — they're a real API that any agent can discover and pay to use. The infrastructure pays for itself.
@@ -118,3 +93,179 @@ Skills encode your workflows. Instead of remembering "first scrape the wiki, the
 Poncho bridges chat and code. You don't always want to open a terminal. Poncho can call your x402 endpoints, draft vault entries, and push to GitHub — all in a chat conversation.
 It deploys like a website. Push to GitHub, Vercel builds, you see it in your browser. No servers to manage, no Docker, no SSH.
 The pattern is repeatable. Gaming vault today, cooking vault tomorrow, journaling vault next week. Same infra, same skills pattern, different content and endpoints.
+
+# Vault
+
+A private, searchable knowledge base for any domain of your life. Notes, records, research, and memories — structured by you, for you. Deployed on Vercel, version-controlled on GitHub, maintained by Claude Code, and enriched by custom x402 research endpoints.
+
+## How It Works
+
+Content lives as MDX files in this repo, organized by category. A Next.js dashboard renders them into a private, password-protected web app. You edit content three ways:
+
+- **By hand** — write markdown in any editor, commit, push
+- **Claude Code** — AI edits files, runs skills, commits and pushes
+- **In-browser** — live editor built into the dashboard, commits to GitHub on save
+
+Custom x402 endpoints power a research layer — domain-specific paid APIs that any x402-compatible agent can call to pull in data, scrape sources, and enrich your vault.
+
+## Architecture
+
+```
+You ─── Browser (editor) ──── GitHub API ────┐
+  │                                          │
+  ├── Claude Code ──── git push ─────────────┤
+  │                                          v
+  └── Poncho ──── AgentCash fetch ──┐    GitHub (repo)
+                                    │        │
+                              x402 Research  │ auto-deploy
+                              Endpoints      │
+                                             v
+                                        Vercel (dashboard)
+```
+
+## Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Content | MDX files with YAML frontmatter |
+| Framework | Next.js (App Router) |
+| Styling | Tailwind CSS |
+| Deployment | Vercel |
+| Version Control | Git + GitHub |
+| Auth | Password middleware (env var) |
+| Research | Custom x402 endpoints (Vercel serverless) |
+| AI Maintenance | Claude Code + Claude Skills |
+| Agent Access | Poncho via AgentCash |
+
+## Project Structure
+
+```
+vault/
+  [category]/
+    [entry].mdx          # content entries with frontmatter
+public/
+  data/
+    [source].json         # cached API data
+src/
+  app/                    # Next.js pages and layouts
+  components/             # dashboard UI components
+  lib/                    # utilities, MDX parsing, API clients
+api/
+  [domain]/               # x402 endpoint serverless functions
+.claude/
+  skills/                 # Claude Code skill definitions
+```
+
+## Content Format
+
+Every vault entry is an MDX file with structured frontmatter:
+
+```mdx
+---
+title: Entry Title
+category: lore
+tags: [tag-one, tag-two]
+status: draft | published
+created: 2026-05-12
+updated: 2026-05-12
+---
+
+Your content here. Markdown with optional JSX components.
+```
+
+## x402 Research Endpoints
+
+Custom paid API endpoints that wrap domain-specific data sources behind the x402 payment protocol. Any x402-compatible agent can discover and call them.
+
+| Endpoint | Description |
+|----------|------------|
+| `POST /lore/search` | Search wikis and knowledge bases for a topic |
+| `POST /lore/scrape` | Extract and structure content from a URL |
+| `GET /game/lookup` | Look up metadata from game databases |
+| `GET /game/achievements` | Pull achievement data by title and platform |
+| `POST /community/search` | Search forums and discussions |
+| `GET /platform/profile` | Pull profile data from platform APIs |
+
+Endpoints are defined with an OpenAPI spec for discoverability via AgentCash search.
+
+## Claude Skills
+
+Reusable workflows that chain x402 endpoint calls into high-level tasks.
+
+| Skill | What it does |
+|-------|-------------|
+| `/research-lore` | Scrapes wikis, searches forums, writes structured MDX entries |
+| `/pull-achievements` | Pulls platform data, formats as vault entries |
+| `/game-lookup` | Populates a full profile from databases |
+| `/expand-headcanon` | Finds community theories and speculation, drafts entries |
+| `/update-vault` | Re-pulls data, diffs against existing entries, updates what changed |
+
+## Infrastructure
+
+### Required
+
+- **GitHub** — hosts the repo (free)
+- **Vercel** — deploys the dashboard + x402 endpoints (free tier)
+- **Claude Code** — builds and maintains the vault (Claude subscription)
+
+### Optional
+
+- **Poncho** — chat-based vault updates via AgentCash (Poncho Pro)
+- **Custom domain** — e.g. `vault.yourdomain.dev`
+- **Claude API** — for in-dashboard AI chat features
+- **Upstream APIs** — data sources your x402 endpoints wrap (varies)
+
+## The Pattern
+
+This vault architecture is domain-agnostic. The same structure works for gaming, cooking, journaling, fitness, music, reading, travel, or any domain where you accumulate knowledge and want a private, organized, searchable home for it.
+
+What changes per domain:
+- Content categories and frontmatter fields
+- x402 endpoints and the upstream APIs they wrap
+- Claude skills and the workflows they define
+- Dashboard widgets and visualizations
+
+What stays the same:
+- MDX files in GitHub
+- Next.js + Vercel deployment
+- Password-protected access
+- Claude Code + Poncho as maintainers
+- x402 as the research layer
+- Claude skills as workflow automation
+
+## Getting Started
+
+```bash
+# Clone the repo
+git clone https://github.com/your-username/vault.git
+cd vault
+
+# Install dependencies
+bun install
+
+# Set environment variables
+cp .env.example .env.local
+# Add: VAULT_PASSWORD, API keys for x402 upstream services
+
+# Run locally
+bun dev
+
+# Deploy
+git push origin main
+# Vercel auto-deploys on push
+```
+
+## Environment Variables
+
+| Variable | Description |
+|----------|------------|
+| `VAULT_PASSWORD` | Password for dashboard access |
+| `GITHUB_TOKEN` | For in-browser editor commits |
+| `XBOX_API_KEY` | Xbox Live / OpenXBL API key (gaming vault) |
+| `FIRECRAWL_API_KEY` | For wiki scraping endpoints |
+| `IGDB_CLIENT_ID` | For game database lookups |
+
+## License
+
+Private. Not open source.
+
