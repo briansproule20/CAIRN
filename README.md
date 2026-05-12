@@ -8,15 +8,23 @@ A private, personal digital vault that organizes an entire domain of your life i
 **
 
 ## Domain Examples
-Domain	What the vault holds	What x402 endpoints research
-Gaming	Achievements, lore, head-canon, console history, scores, session journals	Wiki scraping, forum theories, game databases, achievement guides, Xbox API
-Cooking	Recipes, ingredient notes, meal plans, technique journals, flavor pairings	Recipe databases, nutrition APIs, restaurant menus, food science forums
-Journaling	Daily entries, reflections, goals, mood tracking, life milestones	Weather history, news archives, location data, calendar integration
-Fitness	Workout logs, PRs, programs, nutrition, body measurements	Exercise databases, nutrition APIs, program generators
-Music	Listening logs, album reviews, concert history, gear collection, practice notes	Discogs, Spotify stats, setlist archives, music theory resources
-Reading	Book notes, quotes, reading lists, author research, annotations	Goodreads, OpenLibrary, author interviews, literary criticism
-Travel	Trip journals, itineraries, photos, restaurant reviews, packing lists	Flight data, hotel reviews, local guides, weather forecasts
-Woodworking / Maker	Project logs, tool inventory, material notes, techniques, plans	Supplier databases, wood databases, technique tutorials, plan archives
+**Domain	What the vault holds	What x402 endpoints research**
+
+**Gaming**	Achievements, lore, head-canon, console history, scores, session journals	Wiki scraping, forum theories, game databases, achievement guides, Xbox API
+
+**Cooking**	Recipes, ingredient notes, meal plans, technique journals, flavor pairings	Recipe databases, nutrition APIs, restaurant menus, food science forums
+
+**Journaling**	Daily entries, reflections, goals, mood tracking, life milestones	Weather history, news archives, location data, calendar integration
+
+**Fitness**	Workout logs, PRs, programs, nutrition, body measurements	Exercise databases, nutrition APIs, program generators
+
+**Music	Listening** logs, album reviews, concert history, gear collection, practice notes	Discogs, Spotify stats, setlist archives, music theory resources
+
+**Reading**	Book notes, quotes, reading lists, author research, annotations	Goodreads, OpenLibrary, author interviews, literary criticism
+
+**Travel**	Trip journals, itineraries, photos, restaurant reviews, packing lists	Flight data, hotel reviews, local guides, weather forecasts
+
+**Woodworking / Maker**	Project logs, tool inventory, material notes, techniques, plans	Supplier databases, wood databases, technique tutorials, plan archives
 
 # What Makes This Pattern Powerful
 
