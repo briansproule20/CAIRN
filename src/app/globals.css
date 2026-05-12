@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-tertiary: #1e1e1e;
+  --border: #2a2a2a;
+  --text-primary: #e5e5e5;
+  --text-secondary: #a3a3a3;
+  --text-muted: #6b6b6b;
+  --accent: #c8a87c;
+  --accent-dim: #8b7355;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg-primary);
+}

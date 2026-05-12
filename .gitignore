@@ -1,0 +1,39 @@
+# dependencies
+node_modules
+
+# next.js
+.next
+out
+
+# build output
+dist
+*.tgz
+
+# env files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+*.log
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.idea
+.vscode
+
+# OS
+.DS_Store
+Thumbs.db

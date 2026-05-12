@@ -1,0 +1,39 @@
+---
+title: Getting Started
+category: example
+tags: [cairn, setup]
+status: published
+created: 2026-05-12
+updated: 2026-05-12
+---
+
+This is an example vault entry. Each entry is an MDX file with YAML frontmatter.
+
+## Structure
+
+- **title** — display name for this entry
+- **category** — must match the parent folder name
+- **tags** — array of tags for filtering and search
+- **status** — `draft` or `published`
+- **created / updated** — date strings
+
+## Creating Your Own
+
+1. Create a folder in `/vault` for your category (e.g. `vault/lore/`)
+2. Add `.mdx` files with the frontmatter above
+3. Push to GitHub — the dashboard rebuilds automatically
+
+## Using Claude Code
+
+Ask Claude Code to create entries for you:
+
+```
+"Add a new entry about [topic] in the [category] section"
+```
+
+Or use the built-in skills:
+
+```
+/new-entry "My Topic" --category lore --tags topic, research
+/research-topic "Some Subject" --category lore
+```

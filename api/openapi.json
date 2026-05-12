@@ -1,0 +1,117 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CAIRN Research Endpoints",
+    "version": "0.1.0",
+    "description": "Domain-specific research endpoints powered by x402. Agents can discover and pay-per-call to scrape sources, query databases, and enrich vault content."
+  },
+  "paths": {
+    "/api/source/search": {
+      "post": {
+        "summary": "Search knowledge sources",
+        "description": "Search domain-specific wikis, databases, and knowledge bases for a given topic.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": { "type": "string", "description": "Search query" },
+                  "sources": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Optional list of source types to search"
+                  },
+                  "limit": { "type": "integer", "default": 10 }
+                },
+                "required": ["query"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results with sources and metadata"
+          }
+        }
+      }
+    },
+    "/api/source/scrape": {
+      "post": {
+        "summary": "Scrape and structure content from a URL",
+        "description": "Extract content from a URL and return it as structured markdown with metadata.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": { "type": "string", "description": "URL to scrape" },
+                  "format": { "type": "string", "enum": ["markdown", "json"], "default": "markdown" }
+                },
+                "required": ["url"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Structured content extracted from the URL"
+          }
+        }
+      }
+    },
+    "/api/data/lookup": {
+      "get": {
+        "summary": "Look up domain data",
+        "description": "Query domain-specific databases for metadata, ratings, and details.",
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata and details for the queried item"
+          }
+        }
+      }
+    },
+    "/api/community/search": {
+      "post": {
+        "summary": "Search community discussions",
+        "description": "Search forums, Reddit, and community sites for discussions on a topic.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": { "type": "string" },
+                  "sources": {
+                    "type": "array",
+                    "items": { "type": "string", "enum": ["reddit", "forums", "all"] },
+                    "default": ["all"]
+                  },
+                  "limit": { "type": "integer", "default": 10 }
+                },
+                "required": ["query"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Community discussion results"
+          }
+        }
+      }
+    }
+  }
+}
