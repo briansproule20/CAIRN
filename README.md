@@ -4,8 +4,7 @@
 
 A private, personal digital vault that organizes an entire domain of your life into a single searchable, browsable dashboard. Notes, records, research, media, and memories — structured by you, for you. Deployed on Vercel, version-controlled on GitHub, maintained by Claude Code, enriched by x402-powered research endpoints, and editable by hand whenever you want. It's a personal knowledge base with an AI-powered research engine behind it.
 
-**Great for gaming. Great for cooking. Great for journaling. Great for any domain where you accumulate knowledge, track progress, and want a private, organized, searchable home for all of it.
-**
+**Great for gaming. Great for cooking. Great for journaling. Great for any domain where you accumulate knowledge, track progress, and want a private, organized, searchable home for all of it.**
 
 ## Domain Examples
 **Gaming**	Achievements, lore, head-canon, console history, scores, session journals	Wiki scraping, forum theories, game databases, achievement guides, Xbox API
