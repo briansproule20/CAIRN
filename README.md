@@ -114,28 +114,13 @@ Your content here. Markdown with optional JSX components.
 
 Custom paid API endpoints that wrap domain-specific data sources behind the x402 payment protocol. Any x402-compatible agent can discover and call them.
 
-| Endpoint | Description |
-|----------|------------|
-| `POST /lore/search` | Search wikis and knowledge bases for a topic |
-| `POST /lore/scrape` | Extract and structure content from a URL |
-| `GET /game/lookup` | Look up metadata from game databases |
-| `GET /game/achievements` | Pull achievement data by title and platform |
-| `POST /community/search` | Search forums and discussions |
-| `GET /platform/profile` | Pull profile data from platform APIs |
-
 Endpoints are defined with an OpenAPI spec for discoverability via AgentCash search.
+
 
 ## Claude Skills
 
 Reusable workflows that chain x402 endpoint calls into high-level tasks.
 
-| Skill | What it does |
-|-------|-------------|
-| `/research-lore` | Scrapes wikis, searches forums, writes structured MDX entries |
-| `/pull-achievements` | Pulls platform data, formats as vault entries |
-| `/game-lookup` | Populates a full profile from databases |
-| `/expand-headcanon` | Finds community theories and speculation, drafts entries |
-| `/update-vault` | Re-pulls data, diffs against existing entries, updates what changed |
 
 ## Infrastructure
 
@@ -191,16 +176,6 @@ bun dev
 git push origin main
 # Vercel auto-deploys on push
 ```
-
-## Environment Variables
-
-| Variable | Description |
-|----------|------------|
-| `VAULT_PASSWORD` | Password for dashboard access |
-| `GITHUB_TOKEN` | For in-browser editor commits |
-| `XBOX_API_KEY` | Xbox Live / OpenXBL API key (gaming vault) |
-| `FIRECRAWL_API_KEY` | For wiki scraping endpoints |
-| `IGDB_CLIENT_ID` | For game database lookups |
 
 ## License
 
