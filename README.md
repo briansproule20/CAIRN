@@ -4,9 +4,10 @@
 
 A private, personal digital vault that organizes an entire domain of your life into a single searchable, browsable dashboard. Notes, records, research, media, and memories — structured by you, for you. Deployed on Vercel, version-controlled on GitHub, maintained by Claude Code, enriched by x402-powered research endpoints, and editable by hand whenever you want. It's a personal knowledge base with an AI-powered research engine behind it.
 
-Great for gaming. Great for cooking. Great for journaling. Great for any domain where you accumulate knowledge, track progress, and want a private, organized, searchable home for all of it.
+**Great for gaming. Great for cooking. Great for journaling. Great for any domain where you accumulate knowledge, track progress, and want a private, organized, searchable home for all of it.
+**
 
-Domain Examples
+## Domain Examples
 Domain	What the vault holds	What x402 endpoints research
 Gaming	Achievements, lore, head-canon, console history, scores, session journals	Wiki scraping, forum theories, game databases, achievement guides, Xbox API
 Cooking	Recipes, ingredient notes, meal plans, technique journals, flavor pairings	Recipe databases, nutrition APIs, restaurant menus, food science forums
@@ -16,7 +17,6 @@ Music	Listening logs, album reviews, concert history, gear collection, practice 
 Reading	Book notes, quotes, reading lists, author research, annotations	Goodreads, OpenLibrary, author interviews, literary criticism
 Travel	Trip journals, itineraries, photos, restaurant reviews, packing lists	Flight data, hotel reviews, local guides, weather forecasts
 Woodworking / Maker	Project logs, tool inventory, material notes, techniques, plans	Supplier databases, wood databases, technique tutorials, plan archives
-The vault pattern is the same every time. The content, x402 endpoints, and Claude skills change per domain.
 
 # What Makes This Pattern Powerful
 
