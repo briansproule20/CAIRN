@@ -18,8 +18,7 @@ Travel	Trip journals, itineraries, photos, restaurant reviews, packing lists	Fli
 Woodworking / Maker	Project logs, tool inventory, material notes, techniques, plans	Supplier databases, wood databases, technique tutorials, plan archives
 The vault pattern is the same every time. The content, x402 endpoints, and Claude skills change per domain.
 
-The Pattern
-
+# The Pattern
 
 [Your Knowledge]
       |
@@ -43,46 +42,6 @@ The Pattern
       |--- x402 Endpoints (domain-specific research APIs you build and deploy)
       |--- Claude Skills (workflow recipes that chain endpoint calls into tasks)
       
-# Infrastructure Diagram
-
-┌─────────────────────────────────────────────────────────┐
-│                    YOU                                  │
-│                                                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
-│  │ Browser  │  │ Claude   │  │ Poncho   │              │
-│  │ (editor) │  │ Code     │  │ (chat)   │              │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘              │
-└───────┼──────────────┼─────────────┼────────────────────┘
-        │              │             │
-        │ GitHub API   │ git push    │ AgentCash fetch
-        │              │             │
-        v              v             v
-┌──────────────┐  ┌──────────────────────────────────┐
-│   GitHub     │  │   x402 Gaming Research API       │
-│   (repo)     │  │   (Vercel serverless)            │
-│              │  │                                  │
-│  vault/      │  │  /lore/search    /game/lookup    │
-│    lore/     │  │  /lore/scrape    /game/achieve.  │
-│    library/  │  │  /community/search               │
-│    headcanon/│  │  /xbox/profile   /xbox/achieve.  │
-│    journal/  │  │                                  │
-│    ...       │  │  Wraps: Firecrawl, IGDB, RAWG,   │
-│              │  │  Reddit, Xbox API, etc.           │
-└──────┬───────┘  └──────────────────────────────────┘
-       │
-       │ auto-deploy on push
-       v
-┌──────────────┐
-│   Vercel     │
-│   (dashboard)│
-│              │
-│  Next.js app │
-│  Password    │
-│  protected   │
-│              │
-│  Your private│
-│  vault UI    │
-└──────────────┘
 
 # What Makes This Pattern Powerful
 
