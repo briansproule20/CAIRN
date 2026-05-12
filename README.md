@@ -1,6 +1,6 @@
 # CAIRN
 
-The Curated Archive of Interactive Records and Notes
+## The Curated Archive of Interactive Records and Notes
 
 A private, personal digital vault that organizes an entire domain of your life into a single searchable, browsable dashboard. Notes, records, research, media, and memories — structured by you, for you. Deployed on Vercel, version-controlled on GitHub, maintained by Claude Code, enriched by x402-powered research endpoints, and editable by hand whenever you want. It's a personal knowledge base with an AI-powered research engine behind it.
 
