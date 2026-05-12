@@ -8,8 +8,6 @@ A private, personal digital vault that organizes an entire domain of your life i
 **
 
 ## Domain Examples
-**Domain	What the vault holds	What x402 endpoints research**
-
 **Gaming**	Achievements, lore, head-canon, console history, scores, session journals	Wiki scraping, forum theories, game databases, achievement guides, Xbox API
 
 **Cooking**	Recipes, ingredient notes, meal plans, technique journals, flavor pairings	Recipe databases, nutrition APIs, restaurant menus, food science forums
@@ -36,9 +34,6 @@ Poncho bridges chat and code. You don't always want to open a terminal. Poncho c
 It deploys like a website. Push to GitHub, Vercel builds, you see it in your browser. No servers to manage, no Docker, no SSH.
 The pattern is repeatable. Gaming vault today, cooking vault tomorrow, journaling vault next week. Same infra, same skills pattern, different content and endpoints.
 
-# Vault
-
-A private, searchable knowledge base for any domain of your life. Notes, records, research, and memories — structured by you, for you. Deployed on Vercel, version-controlled on GitHub, maintained by Claude Code, and enriched by custom x402 research endpoints.
 
 ## How It Works
 
