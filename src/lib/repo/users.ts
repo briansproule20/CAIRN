@@ -32,6 +32,20 @@ export async function isOwner(userId: string): Promise<boolean> {
   return ownerId !== null && ownerId === userId;
 }
 
+/** All accounts (admin view) — newest activity aside, earliest first. */
+export async function listAllUsers() {
+  const db = getDb();
+  return db
+    .select({
+      id: users.id,
+      username: users.username,
+      hasKey: sql<boolean>`${users.ponchoKeyEnc} is not null`,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .orderBy(asc(users.createdAt));
+}
+
 export async function getUserByUsername(username: string) {
   const db = getDb();
   const [u] = await db

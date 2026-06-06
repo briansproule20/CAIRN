@@ -45,3 +45,9 @@ export async function listInvitesBy(userId: string) {
     .where(eq(invites.createdBy, userId))
     .orderBy(desc(invites.createdAt));
 }
+
+/** Every invite (admin view). */
+export async function listAllInvites() {
+  const db = getDb();
+  return db.select().from(invites).orderBy(desc(invites.createdAt));
+}

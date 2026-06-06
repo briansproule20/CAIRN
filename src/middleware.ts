@@ -6,8 +6,15 @@ const PUBLIC_PATHS = new Set(["/login", "/signup"]);
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public pages + all auth endpoints (login / signup / logout).
-  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith("/api/auth")) {
+  // Public pages, auth endpoints, the /cairn homage, and share images.
+  if (
+    PUBLIC_PATHS.has(pathname) ||
+    pathname === "/cairn" ||
+    pathname.startsWith("/cairn/") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/opengraph-image") ||
+    pathname.startsWith("/twitter-image")
+  ) {
     return NextResponse.next();
   }
 

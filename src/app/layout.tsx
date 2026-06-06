@@ -1,10 +1,26 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://cairn.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "CAIRN",
   description: "Curated Archive of Interactive Records and Notes",
   robots: "noindex, nofollow",
+  openGraph: {
+    type: "website",
+    title: "CAIRN",
+    description: "Curated Archive of Interactive Records and Notes",
+    siteName: "CAIRN",
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CAIRN",
+    description: "Curated Archive of Interactive Records and Notes",
+  },
 };
 
 export default function RootLayout({

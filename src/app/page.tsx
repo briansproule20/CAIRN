@@ -17,7 +17,7 @@ function PonchoBanner() {
   return (
     <Link
       href="/poncho"
-      className="group mb-10 flex items-center gap-4 rounded-2xl border border-accent-dim/40 bg-accent/[0.05] px-5 py-4 transition-colors hover:border-accent-dim hover:bg-accent/[0.08]"
+      className="group mt-14 flex items-center gap-4 rounded-2xl border border-accent-dim/40 bg-accent/[0.05] px-5 py-4 transition-colors hover:border-accent-dim hover:bg-accent/[0.08]"
     >
       <Image
         src="/poncho-mark.svg"
@@ -72,8 +72,8 @@ export default function HomePage() {
             A quiet, private archive of records and notes.
           </p>
         </header>
-        <PonchoBanner />
         <EmptyVault />
+        <PonchoBanner />
       </AppShell>
     );
   }
@@ -113,8 +113,6 @@ export default function HomePage() {
           A quiet, private archive of records and notes.
         </p>
       </header>
-
-      <PonchoBanner />
 
       {/* At-a-glance stat tiles */}
       <section aria-label="Vault overview" className="mb-12">
@@ -178,6 +176,8 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <PonchoBanner />
     </AppShell>
   );
 }
