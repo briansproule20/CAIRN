@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+// Resolve the real deployment origin so absolute OG image URLs point at THIS
+// site (Vercel injects these automatically). A hardcoded fallback domain made
+// crawlers fetch the OG image from the wrong host.
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://cairn.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL &&
+    `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`) ||
+  (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ||
+  "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
