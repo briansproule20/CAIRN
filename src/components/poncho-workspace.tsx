@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { ChatActions } from "@/components/chat-actions";
 
 type Mode = "research" | "write" | "format";
 
@@ -65,7 +65,6 @@ function prettyTool(name?: string): string {
 }
 
 export function PonchoWorkspace() {
-  const router = useRouter();
   const [mode, setMode] = useState<Mode>("research");
   const [inputs, setInputs] = useState<Record<Mode, string>>(emptyInputs);
   const [loading, setLoading] = useState(false);
@@ -73,7 +72,6 @@ export function PonchoWorkspace() {
   const [status, setStatus] = useState<string>("");
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
 
   const active = MODES.find((m) => m.id === mode)!;
@@ -169,25 +167,6 @@ export function PonchoWorkspace() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function copyResult() {
-    try {
-      await navigator.clipboard.writeText(result);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      /* clipboard unavailable */
-    }
-  }
-
-  function openInEditor() {
-    try {
-      window.localStorage.setItem("cairn_draft", result);
-    } catch {
-      /* ignore */
-    }
-    router.push("/editor");
   }
 
   const showWorking = loading || activity.length > 0 || (liveText && !result);
@@ -346,22 +325,7 @@ export function PonchoWorkspace() {
             <h2 className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
               Result
             </h2>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={copyResult}
-                className="rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-border-strong hover:text-text"
-              >
-                {copied ? "Copied" : "Copy"}
-              </button>
-              <button
-                type="button"
-                onClick={openInEditor}
-                className="rounded-lg border border-accent-dim/50 bg-accent/5 px-3 py-1.5 text-xs font-medium text-accent-soft transition-colors hover:border-accent-dim hover:bg-accent/10"
-              >
-                Open in editor
-              </button>
-            </div>
+            <ChatActions markdown={result} />
           </div>
           <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-xl border border-border bg-surface px-4 py-4 font-mono text-[0.8125rem] leading-relaxed text-text">
             {result}
