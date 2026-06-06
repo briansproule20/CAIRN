@@ -7,6 +7,7 @@ import {
   type PonchoMode,
 } from "@/lib/poncho";
 import { recordChat } from "@/lib/repo/chats";
+import { recordArtifacts } from "@/lib/repo/artifacts";
 import { resolvePonchoKey } from "@/lib/auth/poncho-key";
 import { getCurrentUserId } from "@/lib/auth/current-user";
 
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
           encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
         );
       let recorded = false;
+      const seenMedia = new Set<string>();
       const firstLine = input
         .trim()
         .split("\n")
@@ -86,6 +88,26 @@ export async function POST(request: NextRequest) {
               title,
               mode,
             });
+          }
+          // Auto-capture any generated media into the Artifacts holding pen.
+          if (ownerId && snap.media?.length) {
+            const fresh = snap.media.filter(
+              (m) => m.url && !seenMedia.has(m.url)
+            );
+            if (fresh.length) {
+              fresh.forEach((m) => seenMedia.add(m.url));
+              void recordArtifacts(
+                ownerId,
+                fresh.map((m) => ({
+                  chatId: snap.chatId,
+                  kind: m.kind,
+                  url: m.url,
+                  mimeType: m.mimeType,
+                  title: m.title,
+                  description: m.description,
+                }))
+              );
+            }
           }
           send("progress", snap);
           if (snap.status === "finished") {

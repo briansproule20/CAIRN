@@ -152,6 +152,31 @@ export const chats = pgTable(
   ]
 );
 
+/** artifacts — generated media/files captured from Poncho runs (ephemeral until
+ *  promoted into the vault). Auto-recorded; the owner verifies before saving. */
+export const artifacts = pgTable(
+  "artifacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    chatId: text("chat_id"),
+    kind: text("kind").notNull(), // image | audio | video | html
+    url: text("url").notNull(),
+    mimeType: text("mime_type"),
+    title: text("title"),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("artifacts_owner_created_idx").on(t.ownerId, t.createdAt),
+    unique("artifacts_owner_url_uq").on(t.ownerId, t.url),
+  ]
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Node = typeof nodes.$inferSelect;
@@ -160,3 +185,5 @@ export type Link = typeof links.$inferSelect;
 export type NewLink = typeof links.$inferInsert;
 export type Chat = typeof chats.$inferSelect;
 export type NewChat = typeof chats.$inferInsert;
+export type Artifact = typeof artifacts.$inferSelect;
+export type NewArtifact = typeof artifacts.$inferInsert;

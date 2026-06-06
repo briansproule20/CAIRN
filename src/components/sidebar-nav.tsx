@@ -4,9 +4,20 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Settings, ChevronDown, Home, Info, X } from "lucide-react";
+import {
+  Settings,
+  ChevronDown,
+  Home,
+  Info,
+  X,
+  ImageIcon,
+  AudioLines,
+  Video,
+  Code2,
+} from "lucide-react";
 import { SidebarTree } from "@/components/sidebar-tree";
 import type { TreeNode } from "@/lib/repo/nodes";
+import type { Artifact } from "@/lib/db/schema";
 
 interface ChatSummary {
   id: string;
@@ -82,6 +93,11 @@ export function SidebarNav({ tree }: { tree: TreeNode[] }) {
         {/* Chats */}
         <Group label="Chats">
           <ChatsNav pathname={pathname} />
+        </Group>
+
+        {/* Artifacts — ephemeral media Poncho generated, awaiting promotion. */}
+        <Group label="Artifacts">
+          <ArtifactsNav pathname={pathname} />
         </Group>
       </div>
 
@@ -257,6 +273,92 @@ function ChatsNav({ pathname }: { pathname: string }) {
           </li>
         );
       })}
+    </ul>
+  );
+}
+
+/** A tiny kind glyph for non-image artifacts in the sidebar. */
+function ArtifactKindIcon({ kind }: { kind: string }) {
+  const cls = "h-3.5 w-3.5 shrink-0 text-accent-dim";
+  if (kind === "audio") return <AudioLines className={cls} />;
+  if (kind === "video") return <Video className={cls} />;
+  if (kind === "html") return <Code2 className={cls} />;
+  return <ImageIcon className={cls} />;
+}
+
+/** Artifacts — ephemeral media captured from Poncho, polled like Chats. */
+function ArtifactsNav({ pathname }: { pathname: string }) {
+  const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
+  const active = pathname === "/artifacts" || pathname.startsWith("/artifacts/");
+
+  useEffect(() => {
+    let alive = true;
+    async function load() {
+      try {
+        const res = await fetch("/api/artifacts");
+        const data = await res.json();
+        if (alive)
+          setArtifacts(Array.isArray(data.artifacts) ? data.artifacts : []);
+      } catch {
+        if (alive) setArtifacts([]);
+      }
+    }
+    load();
+    const t = setInterval(load, 20_000);
+    const onUpdated = () => load();
+    window.addEventListener("cairn:artifacts-updated", onUpdated);
+    window.addEventListener("cairn:chats-updated", onUpdated);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      window.removeEventListener("cairn:artifacts-updated", onUpdated);
+      window.removeEventListener("cairn:chats-updated", onUpdated);
+    };
+  }, []);
+
+  if (artifacts === null) {
+    return (
+      <p className="px-2 py-1 font-mono text-[0.6875rem] text-faint">Loading…</p>
+    );
+  }
+  if (artifacts.length === 0) {
+    return (
+      <p className="px-2 py-1 text-xs leading-relaxed text-muted">
+        No artifacts yet — generate media in{" "}
+        <span className="text-accent-dim">Poncho</span>.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="space-y-0.5">
+      {artifacts.slice(0, 12).map((a) => (
+        <li key={a.id}>
+          <Link
+            href="/artifacts"
+            aria-current={active ? "page" : undefined}
+            className={`flex items-center gap-2 rounded-lg py-1.5 pl-2 pr-2 text-sm transition-colors ${
+              active
+                ? "bg-accent/10 text-accent-soft"
+                : "text-muted hover:bg-surface-2 hover:text-text"
+            }`}
+          >
+            {a.kind === "image" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={a.url}
+                alt=""
+                className="h-4 w-4 shrink-0 rounded-sm border border-border object-cover"
+              />
+            ) : (
+              <ArtifactKindIcon kind={a.kind} />
+            )}
+            <span className="truncate">
+              {a.title || `Generated ${a.kind}`}
+            </span>
+          </Link>
+        </li>
+      ))}
     </ul>
   );
 }
