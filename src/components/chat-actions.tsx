@@ -24,6 +24,27 @@ function deriveTitle(md: string): string {
   );
 }
 
+/** Depth-first folder list (children directly under their parent) for the picker. */
+function orderedFolders(tree: TreeNode[]): { node: TreeNode; depth: number }[] {
+  const byParent = new Map<string | null, TreeNode[]>();
+  for (const n of tree) {
+    const key = n.parentId ?? null;
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key)!.push(n);
+  }
+  const out: { node: TreeNode; depth: number }[] = [];
+  const walk = (parentId: string | null, depth: number) => {
+    for (const c of byParent.get(parentId) ?? []) {
+      if (c.kind === "folder") {
+        out.push({ node: c, depth });
+        walk(c.id, depth + 1);
+      }
+    }
+  };
+  walk(null, 0);
+  return out;
+}
+
 /** Save a chat's final answer as a vault entry at a chosen location, or copy it. */
 export function ChatActions({ markdown }: { markdown: string }) {
   const router = useRouter();
@@ -63,19 +84,7 @@ export function ChatActions({ markdown }: { markdown: string }) {
     }
   }
 
-  const byId = new Map((tree ?? []).map((n) => [n.id, n]));
-  function depthOf(n: TreeNode): number {
-    let d = 0;
-    let cur: TreeNode | undefined = n;
-    const seen = new Set<string>();
-    while (cur?.parentId && !seen.has(cur.id)) {
-      seen.add(cur.id);
-      cur = byId.get(cur.parentId);
-      if (cur) d++;
-    }
-    return d;
-  }
-  const folders = (tree ?? []).filter((n) => n.kind === "folder");
+  const folderList = orderedFolders(tree ?? []);
 
   async function save() {
     if (busy || !title.trim()) return;
@@ -172,12 +181,12 @@ export function ChatActions({ markdown }: { markdown: string }) {
                   Loading…
                 </p>
               ) : (
-                folders.map((f) => (
+                folderList.map(({ node: f, depth }) => (
                   <button
                     key={f.id}
                     type="button"
                     onClick={() => setParentId(f.id)}
-                    style={{ paddingLeft: `${0.625 + depthOf(f) * 0.75}rem` }}
+                    style={{ paddingLeft: `${0.625 + depth * 0.85}rem` }}
                     className={optionClass(parentId === f.id)}
                   >
                     <span className="flex min-w-0 items-center gap-1.5">

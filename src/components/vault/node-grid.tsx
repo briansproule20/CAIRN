@@ -39,7 +39,7 @@ export function NodeGrid({
             <p className="mt-1 font-mono text-[0.6875rem] text-faint">
               {it.kind === "folder"
                 ? `${it.count ?? 0} ${it.count === 1 ? "item" : "items"}`
-                : it.status ?? "entry"}
+                : "entry"}
             </p>
           </div>
         </Link>

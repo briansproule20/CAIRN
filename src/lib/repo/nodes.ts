@@ -192,6 +192,60 @@ export async function deleteNode(ownerId: string, id: string): Promise<void> {
     );
 }
 
+/**
+ * Move a node under a new parent (or to the top level when newParentId is null),
+ * rewriting the node's path + every descendant's path. Rejects moving a folder
+ * into itself or one of its own descendants.
+ */
+export async function moveNode(
+  ownerId: string,
+  id: string,
+  newParentId: string | null
+): Promise<void> {
+  const db = getDb();
+  const node = await getNode(ownerId, id);
+  if (!node) throw new Error("Node not found.");
+  if (newParentId === node.parentId) return; // no-op
+
+  let newPath: string[] = [];
+  if (newParentId) {
+    if (newParentId === id) throw new Error("Can't move a folder into itself.");
+    const parent = await getNode(ownerId, newParentId);
+    if (!parent) throw new Error("Destination not found.");
+    if (parent.path.includes(id)) {
+      throw new Error("Can't move a folder into one of its own subfolders.");
+    }
+    newPath = [...parent.path, parent.id];
+  }
+
+  // Slug must stay unique among the destination's children.
+  const siblings = await listChildren(ownerId, newParentId);
+  if (siblings.some((s) => s.id !== id && s.slug === node.slug)) {
+    throw new Error("An item with that name already exists there.");
+  }
+
+  // Descendants currently carry `id` somewhere in their path.
+  const descendants = await db
+    .select()
+    .from(nodes)
+    .where(and(eq(nodes.ownerId, ownerId), sql`${id} = any(${nodes.path})`));
+
+  await db
+    .update(nodes)
+    .set({ parentId: newParentId, path: newPath, depth: newPath.length, updatedAt: new Date() })
+    .where(and(eq(nodes.ownerId, ownerId), eq(nodes.id, id)));
+
+  for (const d of descendants) {
+    const idx = d.path.indexOf(id);
+    const tail = idx >= 0 ? d.path.slice(idx) : d.path; // [id, ...between]
+    const np = [...newPath, ...tail];
+    await db
+      .update(nodes)
+      .set({ path: np, depth: np.length, updatedAt: new Date() })
+      .where(and(eq(nodes.ownerId, ownerId), eq(nodes.id, d.id)));
+  }
+}
+
 // --- cross-references ------------------------------------------------------
 
 export interface BacklinkRef {

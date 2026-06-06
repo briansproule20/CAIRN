@@ -1,18 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { AppShell } from "@/components/app-shell";
-import { StatTile } from "@/components/dashboard/stat-tile";
 import { SectionHeading } from "@/components/dashboard/section-heading";
 import { EmptyVault } from "@/components/dashboard/empty-vault";
 import { NodeGrid, type NodeCard } from "@/components/vault/node-grid";
 import { getCurrentUserId } from "@/lib/auth/current-user";
-import {
-  nodeStats,
-  recentNodes,
-  listChildren,
-  childCount,
-  slugPathFor,
-} from "@/lib/repo/nodes";
+import { recentNodes, listChildren, childCount, slugPathFor } from "@/lib/repo/nodes";
 
 export const dynamic = "force-dynamic";
 
@@ -40,27 +33,19 @@ function PonchoBanner() {
 }
 
 function fmt(value: Date | string | null): string {
-  if (!value) return "—";
+  if (!value) return "";
   const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export default async function HomePage() {
   const ownerId = await getCurrentUserId();
   if (!ownerId) return null;
 
-  const [stats, recent, tops] = await Promise.all([
-    nodeStats(ownerId),
-    recentNodes(ownerId, 6),
-    listChildren(ownerId, null),
-  ]);
+  const tops = await listChildren(ownerId, null);
 
-  if (stats.total === 0) {
+  if (tops.length === 0) {
     return (
       <AppShell title="Vault">
         <header className="mb-8">
@@ -75,7 +60,7 @@ export default async function HomePage() {
     );
   }
 
-  const topCards: NodeCard[] = await Promise.all(
+  const categories: NodeCard[] = await Promise.all(
     tops.map(async (t) => ({
       slug: t.slug,
       title: t.title,
@@ -85,6 +70,7 @@ export default async function HomePage() {
     }))
   );
 
+  const recent = await recentNodes(ownerId, 5);
   const recentItems = await Promise.all(
     recent.map(async (r) => ({
       title: r.title,
@@ -104,33 +90,14 @@ export default async function HomePage() {
         </p>
       </header>
 
-      <section aria-label="Vault overview" className="mb-12">
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile label="Entries" value={stats.entries} hint="records" />
-          <StatTile label="Folders" value={stats.folders} hint="sections" />
-          <StatTile
-            label="Published"
-            value={
-              <span className="flex items-baseline gap-1">
-                {stats.published}
-                <span className="font-mono text-base text-faint">
-                  / {stats.entries}
-                </span>
-              </span>
-            }
-            hint={`${stats.entries - stats.published} drafts`}
-          />
-          <StatTile label="Total nodes" value={stats.total} hint="all" />
-        </dl>
+      <section>
+        <SectionHeading title="Your sections" count={categories.length} />
+        <NodeGrid items={categories} basePath="/vault" />
       </section>
 
       {recentItems.length > 0 && (
-        <section className="mb-12">
-          <SectionHeading
-            title="Recently updated"
-            count={recentItems.length}
-            action={{ href: "/vault", label: "Open vault" }}
-          />
+        <section className="mt-12">
+          <SectionHeading title="Recently updated" count={recentItems.length} />
           <div className="grid gap-2">
             {recentItems.map((e) => (
               <Link
@@ -147,11 +114,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-
-      <section>
-        <SectionHeading title="Browse by section" count={topCards.length} />
-        <NodeGrid items={topCards} basePath="/vault" />
-      </section>
 
       <PonchoBanner />
     </AppShell>

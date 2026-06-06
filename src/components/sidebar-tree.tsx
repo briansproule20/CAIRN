@@ -2,13 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  ChevronRight,
-  FileText,
-  Folder,
-  FolderOpen,
-} from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
 
 export interface TreeNode {
   id: string;
@@ -18,78 +13,80 @@ export interface TreeNode {
   kind: "folder" | "entry";
 }
 
-/** A node enriched with its children and full slug path (root → self). */
 interface TreeItem extends TreeNode {
   children: TreeItem[];
-  slugPath: string[];
   href: string;
 }
 
+const ROOT = "__root__";
+
 /**
- * SidebarTree — Obsidian/Cursor-style nested file tree.
- *
- * Receives the FLAT, folders-first node list from the server, reconstructs the
- * hierarchy on the client, and renders a recursive collapsible tree. Folders
- * toggle open/closed (chevron + Folder/FolderOpen); entries are leaves
- * (FileText) that navigate to their /vault/<slugpath> URL. The node matching
- * the current pathname is highlighted, and its ancestors auto-expand on load.
+ * SidebarTree — Obsidian/Cursor-style nested tree.
+ * Folders default COLLAPSED. Click a folder's name to OPEN it (navigate);
+ * click the chevron to expand/collapse. Drag a node onto a folder (or the empty
+ * area = top level) to MOVE it.
  */
 export function SidebarTree({ nodes }: { nodes: TreeNode[] }) {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
+  const roots = useMemo(() => buildTree(nodes), [nodes]);
 
-  // Build the tree + per-node slug path from the flat list.
-  const { roots, byHref } = useMemo(() => buildTree(nodes), [nodes]);
-
-  // Ancestors of the active node — used to seed the open-folder set on load.
-  const activeAncestors = useMemo(() => {
-    const open = new Set<string>();
-    // Find the deepest node whose href is a prefix of (or equal to) the path.
-    let match: TreeItem | null = null;
-    for (const item of byHref.values()) {
-      if (
-        pathname === item.href ||
-        pathname.startsWith(item.href + "/")
-      ) {
-        if (!match || item.slugPath.length > match.slugPath.length) {
-          match = item;
-        }
-      }
-    }
-    if (match) {
-      // Walk up via parentId, collecting folder ids to expand.
-      const byId = new Map(nodes.map((n) => [n.id, n] as const));
-      let pid = match.parentId;
-      while (pid) {
-        open.add(pid);
-        pid = byId.get(pid)?.parentId ?? null;
-      }
-      // If the active node itself is a folder, open it too.
-      if (match.kind === "folder") open.add(match.id);
-    }
-    return open;
-  }, [nodes, byHref, pathname]);
-
-  const [openIds, setOpenIds] = useState<Set<string>>(activeAncestors);
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   const toggle = (id: string) =>
     setOpenIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+
+  async function move(nodeId: string, newParentId: string | null) {
+    if (nodeId === newParentId) return;
+    try {
+      const res = await fetch(`/api/nodes/${nodeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parentId: newParentId }),
+      });
+      if (res.ok) router.refresh();
+    } catch {
+      /* ignore — tree refreshes on next load */
+    }
+  }
+
+  function endDrag() {
+    setDragId(null);
+    setOverId(null);
+  }
 
   if (roots.length === 0) {
     return (
       <p className="px-2 py-1 text-xs leading-relaxed text-muted">
-        No entries yet. Use{" "}
-        <span className="text-accent-dim">+ New Entry</span> to start.
+        No entries yet. Use <span className="text-accent-dim">+ New Entry</span>{" "}
+        to start.
       </p>
     );
   }
 
   return (
-    <ul className="space-y-0.5">
+    <ul
+      className={`space-y-0.5 rounded-lg transition-colors ${
+        overId === ROOT ? "bg-accent/5 ring-1 ring-accent-dim/50" : ""
+      }`}
+      onDragOver={(e) => {
+        if (dragId) {
+          e.preventDefault();
+          setOverId(ROOT);
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (dragId) move(dragId, null);
+        endDrag();
+      }}
+    >
       {roots.map((item) => (
         <TreeRow
           key={item.id}
@@ -98,6 +95,12 @@ export function SidebarTree({ nodes }: { nodes: TreeNode[] }) {
           pathname={pathname}
           openIds={openIds}
           toggle={toggle}
+          dragId={dragId}
+          overId={overId}
+          setDragId={setDragId}
+          setOverId={setOverId}
+          move={move}
+          endDrag={endDrag}
         />
       ))}
     </ul>
@@ -110,64 +113,114 @@ function TreeRow({
   pathname,
   openIds,
   toggle,
+  dragId,
+  overId,
+  setDragId,
+  setOverId,
+  move,
+  endDrag,
 }: {
   item: TreeItem;
   depth: number;
   pathname: string;
   openIds: Set<string>;
   toggle: (id: string) => void;
+  dragId: string | null;
+  overId: string | null;
+  setDragId: (id: string | null) => void;
+  setOverId: (id: string | null) => void;
+  move: (nodeId: string, parentId: string | null) => void;
+  endDrag: () => void;
 }) {
   const isFolder = item.kind === "folder";
   const open = openIds.has(item.id);
   const active =
-    pathname === item.href ||
-    (isFolder && pathname.startsWith(item.href + "/"));
+    pathname === item.href || (isFolder && pathname.startsWith(item.href + "/"));
+  const isDropTarget = isFolder && overId === item.id && dragId !== item.id;
+  const indent = { paddingLeft: `${0.25 + depth * 0.7}rem` };
 
-  // Indent each level; depth 0 has the base padding.
-  const indent = { paddingLeft: `${0.5 + depth * 0.75}rem` };
+  const dragProps = {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.stopPropagation();
+      setDragId(item.id);
+    },
+    onDragEnd: endDrag,
+  };
 
-  const rowClass = `group flex w-full items-center gap-1.5 rounded-lg py-1.5 pr-2 text-sm transition-colors ${
-    active
-      ? "bg-accent/10 text-accent-soft"
-      : "text-muted hover:bg-surface-2 hover:text-text"
+  const folderDropProps = isFolder
+    ? {
+        onDragOver: (e: React.DragEvent) => {
+          if (dragId && dragId !== item.id) {
+            e.preventDefault();
+            e.stopPropagation();
+            setOverId(item.id);
+          }
+        },
+        onDrop: (e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (dragId && dragId !== item.id) move(dragId, item.id);
+          endDrag();
+        },
+      }
+    : {};
+
+  const rowClass = `group flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm transition-colors ${
+    isDropTarget
+      ? "bg-accent/15 ring-1 ring-accent-dim"
+      : active
+        ? "bg-accent/10 text-accent-soft"
+        : "text-muted hover:bg-surface-2 hover:text-text"
   }`;
 
   return (
     <li>
-      {isFolder ? (
-        <button
-          type="button"
-          onClick={() => toggle(item.id)}
-          aria-expanded={open}
-          style={indent}
-          className={rowClass}
-        >
-          <ChevronRight
-            aria-hidden
-            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${
-              open ? "rotate-90" : ""
-            }`}
-          />
-          {open ? (
-            <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          ) : (
-            <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          )}
-          <span className="truncate">{item.title}</span>
-        </button>
-      ) : (
+      <div
+        style={indent}
+        className={rowClass}
+        {...dragProps}
+        {...folderDropProps}
+      >
+        {isFolder ? (
+          <button
+            type="button"
+            aria-label={open ? "Collapse" : "Expand"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggle(item.id);
+            }}
+            className="shrink-0 rounded p-0.5 text-faint transition-colors hover:text-text"
+          >
+            <ChevronRight
+              aria-hidden
+              className={`h-3.5 w-3.5 transition-transform duration-150 ${
+                open ? "rotate-90" : ""
+              }`}
+            />
+          </button>
+        ) : (
+          <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
+        )}
+
         <Link
           href={item.href}
           aria-current={active ? "page" : undefined}
-          style={indent}
-          className={rowClass}
+          className="flex min-w-0 flex-1 items-center gap-1.5"
         >
-          {/* Spacer aligns leaves under the chevron column. */}
-          <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          {isFolder ? (
+            open ? (
+              <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            ) : (
+              <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            )
+          ) : (
+            <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          )}
           <span className="truncate">{item.title}</span>
         </Link>
-      )}
+      </div>
 
       {isFolder && open && item.children.length > 0 && (
         <ul className="space-y-0.5">
@@ -179,6 +232,12 @@ function TreeRow({
               pathname={pathname}
               openIds={openIds}
               toggle={toggle}
+              dragId={dragId}
+              overId={overId}
+              setDragId={setDragId}
+              setOverId={setOverId}
+              move={move}
+              endDrag={endDrag}
             />
           ))}
         </ul>
@@ -187,17 +246,10 @@ function TreeRow({
   );
 }
 
-/**
- * Reconstruct the hierarchy from the flat, folders-first list. Computes each
- * node's slug path by walking parentId to the root, preserving input order.
- */
-function buildTree(nodes: TreeNode[]): {
-  roots: TreeItem[];
-  byHref: Map<string, TreeItem>;
-} {
+function buildTree(nodes: TreeNode[]): TreeItem[] {
   const rawById = new Map(nodes.map((n) => [n.id, n] as const));
 
-  const slugPathFor = (node: TreeNode): string[] => {
+  const hrefFor = (node: TreeNode): string => {
     const path: string[] = [];
     let cur: TreeNode | undefined = node;
     const seen = new Set<string>();
@@ -206,33 +258,24 @@ function buildTree(nodes: TreeNode[]): {
       path.unshift(cur.slug);
       cur = cur.parentId ? rawById.get(cur.parentId) : undefined;
     }
-    return path;
+    return `/vault/${path.join("/")}`;
   };
 
   const itemById = new Map<string, TreeItem>();
   for (const n of nodes) {
-    const slugPath = slugPathFor(n);
-    itemById.set(n.id, {
-      ...n,
-      children: [],
-      slugPath,
-      href: `/vault/${slugPath.join("/")}`,
-    });
+    itemById.set(n.id, { ...n, children: [], href: hrefFor(n) });
   }
 
   const roots: TreeItem[] = [];
-  const byHref = new Map<string, TreeItem>();
   for (const n of nodes) {
     const item = itemById.get(n.id)!;
-    byHref.set(item.href, item);
     if (n.parentId && itemById.has(n.parentId)) {
       itemById.get(n.parentId)!.children.push(item);
     } else {
       roots.push(item);
     }
   }
-
-  return { roots, byHref };
+  return roots;
 }
 
 export default SidebarTree;

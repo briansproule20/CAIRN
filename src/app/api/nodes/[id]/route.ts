@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/current-user";
-import { getNode, updateNode, deleteNode } from "@/lib/repo/nodes";
+import { getNode, updateNode, deleteNode, moveNode } from "@/lib/repo/nodes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,8 +35,27 @@ export async function PATCH(
   if (Array.isArray(body.tags))
     patch.tags = body.tags.map((t) => String(t).trim()).filter(Boolean);
 
-  const node = await updateNode(ownerId, id, patch);
-  if (!node) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  // Reparent (drag-and-drop / move) when a parentId is supplied.
+  if ("parentId" in body) {
+    const newParentId =
+      body.parentId === null || body.parentId === ""
+        ? null
+        : String(body.parentId);
+    try {
+      await moveNode(ownerId, id, newParentId);
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Couldn't move." },
+        { status: 400 }
+      );
+    }
+  }
+
+  if (Object.keys(patch).length > 0) {
+    const node = await updateNode(ownerId, id, patch);
+    if (!node) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
   return NextResponse.json({ ok: true });
 }
 
