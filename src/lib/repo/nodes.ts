@@ -335,6 +335,43 @@ export async function getSubtree(
     .orderBy(...childOrder);
 }
 
+/**
+ * Assemble selected nodes' content into a single context string (entries →
+ * their content; folders → their descendant entries' content), capped in size.
+ * Used to feed vault material to Poncho when building an artifact.
+ */
+export async function buildContext(
+  ownerId: string,
+  ids: string[]
+): Promise<string> {
+  const CAP = 24_000;
+  const parts: string[] = [];
+  let used = 0;
+  const add = (title: string, content: string) => {
+    if (used >= CAP) return;
+    const block = `## ${title}\n${(content || "").trim()}`.slice(0, CAP - used);
+    parts.push(block);
+    used += block.length;
+  };
+  for (const id of ids) {
+    if (used >= CAP) break;
+    const node = await getNode(ownerId, id);
+    if (!node) continue;
+    if (node.kind === "entry") {
+      add(node.title, node.content);
+    } else {
+      const sub = await getSubtree(ownerId, node.id);
+      for (const n of sub) {
+        if (used >= CAP) break;
+        if (n.kind !== "entry") continue;
+        const e = await getNode(ownerId, n.id);
+        if (e) add(e.title, e.content);
+      }
+    }
+  }
+  return parts.join("\n\n");
+}
+
 /** Resolve a node's full slug path (ancestors → self) for building /vault URLs. */
 export async function slugPathFor(
   ownerId: string,

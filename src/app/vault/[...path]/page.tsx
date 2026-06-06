@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { serialize } from "next-mdx-remote/serialize";
+import { serializeMdx } from "@/lib/mdx";
 import { AppShell } from "@/components/app-shell";
 import { MDXContent } from "@/components/mdx-content";
 import { type NodeCard } from "@/components/vault/node-grid";
@@ -69,7 +69,7 @@ export default async function NodePathPage({
       }))
     );
     const overview = node.content?.trim()
-      ? await serialize(node.content).catch(() => null)
+      ? await serializeMdx(node.content).catch(() => null)
       : null;
     // Subtree powers the inline tree view — only offered when there are
     // nested folders to expand.
@@ -116,7 +116,7 @@ export default async function NodePathPage({
   }
 
   // entry
-  const source = await serialize(node.content || "").catch(() => null);
+  const source = await serializeMdx(node.content || "").catch(() => null);
   const parentPath =
     path.length > 1
       ? "/vault/" + path.slice(0, -1).map(encodeURIComponent).join("/")

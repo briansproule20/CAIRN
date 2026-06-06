@@ -400,7 +400,12 @@ ${brief}`;
 // Streaming: watch Poncho work (reasoning + tool calls + text) live.
 // ---------------------------------------------------------------------------
 
-export type PonchoMode = "research" | "write" | "format" | "media";
+export type PonchoMode =
+  | "research"
+  | "write"
+  | "format"
+  | "media"
+  | "build";
 
 export interface MediaArtifact {
   url: string;
@@ -418,9 +423,34 @@ export interface MediaArtifact {
 export function buildPrompt(
   mode: PonchoMode,
   input: string,
-  _opts: { category?: string; mediaType?: string } = {}
+  _opts: {
+    category?: string;
+    mediaType?: string;
+    designLanguage?: string;
+    context?: string;
+  } = {}
 ): string {
   const topic = input.trim();
+
+  if (mode === "build") {
+    const design = _opts.designLanguage?.trim()
+      ? `\n\nDesign language / styling direction:\n${_opts.designLanguage.trim()}`
+      : "";
+    const ctx = _opts.context?.trim()
+      ? `\n\nSource material from the user's vault — use it where relevant:\n${_opts.context.trim()}`
+      : "";
+    return `CAIRN · build artifact request
+Build ONE self-contained, interactive HTML artifact for the brief below. Use inline CSS and JavaScript only — NO external files, NO CDN links, NO network requests. It must run standalone inside a sandboxed iframe.
+
+You MAY use your research tools to gather accurate content first.${
+      ctx ? " Prefer the provided vault material where it's relevant." : ""
+    }
+
+Return ONLY the complete HTML document, starting with <!DOCTYPE html>. Do NOT use the present_artifact tool, and do NOT add any commentary before or after — your entire reply must be the HTML itself.
+
+Brief:
+${topic}${design}${ctx}`;
+  }
 
   if (mode === "media") {
     const how: Record<string, string> = {
@@ -744,6 +774,7 @@ export interface PonchoChatMessage {
 export interface PonchoChatTranscript {
   status: string;
   messages: PonchoChatMessage[];
+  media: MediaArtifact[];
 }
 
 /** Fetch one chat's full transcript (all messages) for display in CAIRN. */
@@ -784,6 +815,7 @@ export async function getChat(
           steps: partsToSteps(m.parts),
         }))
         .filter((m) => m.steps.length > 0),
+      media: extractMedia(raw),
     };
   } finally {
     clearTimeout(timer);

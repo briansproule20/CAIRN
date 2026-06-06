@@ -8,6 +8,7 @@ import {
 } from "@/lib/poncho";
 import { recordChat } from "@/lib/repo/chats";
 import { recordArtifacts } from "@/lib/repo/artifacts";
+import { buildContext } from "@/lib/repo/nodes";
 import { resolvePonchoKey } from "@/lib/auth/poncho-key";
 import { getCurrentUserId } from "@/lib/auth/current-user";
 
@@ -29,6 +30,8 @@ export async function POST(request: NextRequest) {
     input?: unknown;
     category?: unknown;
     mediaType?: unknown;
+    designLanguage?: unknown;
+    contextIds?: unknown;
   };
   try {
     body = await request.json();
@@ -44,14 +47,23 @@ export async function POST(request: NextRequest) {
       : undefined;
   const mediaType =
     typeof body.mediaType === "string" ? body.mediaType : undefined;
+  const designLanguage =
+    typeof body.designLanguage === "string" ? body.designLanguage : undefined;
+  const contextIds = Array.isArray(body.contextIds)
+    ? body.contextIds.map(String)
+    : [];
 
   if (
     mode !== "research" &&
     mode !== "write" &&
     mode !== "format" &&
-    mode !== "media"
+    mode !== "media" &&
+    mode !== "build"
   ) {
-    return jsonError("mode must be one of: research, write, format, media.", 400);
+    return jsonError(
+      "mode must be one of: research, write, format, media, build.",
+      400
+    );
   }
   if (!input.trim()) {
     return jsonError("Nothing to send — add some input first.", 400);
@@ -59,7 +71,16 @@ export async function POST(request: NextRequest) {
 
   const apiKey = (await resolvePonchoKey()) ?? undefined;
   const ownerId = await getCurrentUserId();
-  const prompt = buildPrompt(mode, input, { category, mediaType });
+  const context =
+    mode === "build" && ownerId && contextIds.length
+      ? await buildContext(ownerId, contextIds)
+      : undefined;
+  const prompt = buildPrompt(mode, input, {
+    category,
+    mediaType,
+    designLanguage,
+    context,
+  });
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -111,7 +132,26 @@ export async function POST(request: NextRequest) {
           }
           send("progress", snap);
           if (snap.status === "finished") {
-            send("done", { result: stepsToText(snap.steps) });
+            const result = stepsToText(snap.steps);
+            send("done", { result });
+            // A built HTML artifact comes back inline — capture it into the pen.
+            if (
+              ownerId &&
+              mode === "build" &&
+              snap.chatId &&
+              /<[a-z!]/i.test(result)
+            ) {
+              void recordArtifacts(ownerId, [
+                {
+                  chatId: snap.chatId,
+                  kind: "html",
+                  url: `cairn:html:${snap.chatId}`,
+                  content: result,
+                  mimeType: "text/html",
+                  title,
+                },
+              ]);
+            }
           } else if (snap.status === "timeout") {
             send("timeout", { partial: stepsToText(snap.steps) });
           }

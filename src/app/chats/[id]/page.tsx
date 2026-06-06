@@ -1,10 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import matter from "gray-matter";
-import { serialize } from "next-mdx-remote/serialize";
+import { serializeMdx } from "@/lib/mdx";
 import { AppShell } from "@/components/app-shell";
 import { ChatActions } from "@/components/chat-actions";
 import { MDXContent } from "@/components/mdx-content";
+import { NodeMedia } from "@/components/vault/node-media";
 import { getChat, PonchoError, type PonchoStep } from "@/lib/poncho";
 import { resolvePonchoKey } from "@/lib/auth/poncho-key";
 
@@ -44,7 +45,7 @@ async function TextStep({ text }: { text: string }) {
   }
 
   try {
-    const source = await serialize(body);
+    const source = await serializeMdx(body);
     return <MDXContent source={source} />;
   } catch {
     return <RawText text={body} />;
@@ -121,14 +122,31 @@ export default async function ChatPage({
         {finalText && <ChatActions markdown={finalText} />}
       </header>
 
+      {transcript && transcript.media.length > 0 && (
+        <div className="mb-6 space-y-4">
+          {transcript.media.map((m, i) => (
+            <NodeMedia
+              key={i}
+              url={m.url}
+              mediaType={m.mimeType || m.kind}
+              title={m.title}
+            />
+          ))}
+        </div>
+      )}
+
       {error ? (
         <div className="rounded-xl border border-accent-dim/40 bg-accent/[0.06] px-4 py-3 text-sm leading-relaxed text-accent-soft">
           {error}
         </div>
       ) : !transcript || transcript.messages.length === 0 ? (
-        <p className="text-sm text-muted">
-          This chat doesn&apos;t have any content yet.
-        </p>
+        <div className="flex items-center gap-2.5 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent"
+          />
+          Poncho is working — check back momentarily.
+        </div>
       ) : (
         <div className="space-y-7">
           {transcript.messages.map((m, mi) => {

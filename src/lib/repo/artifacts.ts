@@ -10,7 +10,8 @@ import { artifacts, type Artifact } from "@/lib/db/schema";
 export interface ArtifactInput {
   chatId?: string;
   kind: string; // image | audio | video | html
-  url: string;
+  url: string; // public URL for media; a synthetic key for html
+  content?: string; // HTML markup (for kind "html")
   mimeType?: string;
   title?: string;
   description?: string;
@@ -29,6 +30,7 @@ export async function recordArtifacts(
       chatId: a.chatId ?? null,
       kind: a.kind || "image",
       url: a.url,
+      content: a.content ?? null,
       mimeType: a.mimeType ?? null,
       title: a.title ?? null,
       description: a.description ?? null,

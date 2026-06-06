@@ -163,7 +163,9 @@ export const artifacts = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     chatId: text("chat_id"),
     kind: text("kind").notNull(), // image | audio | video | html
-    url: text("url").notNull(),
+    url: text("url").notNull().default(""),
+    // HTML artifacts store their markup here instead of a hosted URL.
+    content: text("content"),
     mimeType: text("mime_type"),
     title: text("title"),
     description: text("description"),
