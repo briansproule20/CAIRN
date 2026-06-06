@@ -144,7 +144,8 @@ export function CairnStack({ className = "" }: { className?: string }) {
   return (
     <motion.svg
       viewBox="0 0 300 300"
-      className={`${className} cursor-pointer outline-none focus:outline-none focus-visible:outline-none [-webkit-tap-highlight-color:transparent]`}
+      className={`${className} cursor-pointer [-webkit-tap-highlight-color:transparent]`}
+      style={{ outline: "none" }}
       role="button"
       tabIndex={0}
       aria-label="A cairn of seven stones. Click to knock it over and watch it re-stack."
