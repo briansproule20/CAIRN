@@ -7,6 +7,7 @@ import {
   type PonchoMode,
 } from "@/lib/poncho";
 import { recordChat } from "@/lib/chat-store";
+import { resolvePonchoKey } from "@/lib/auth/poncho-key";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
     return jsonError("Nothing to send — add some input first.", 400);
   }
 
+  const apiKey = (await resolvePonchoKey()) ?? undefined;
   const prompt = buildPrompt(mode, input, { category });
   const encoder = new TextEncoder();
 
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest) {
       try {
         for await (const snap of streamPoncho(prompt, {
           signal: request.signal,
+          apiKey,
         })) {
           // Track this chat as ours the moment Poncho assigns its id.
           if (!recorded && snap.chatId) {

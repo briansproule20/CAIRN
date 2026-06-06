@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifySession, SESSION_COOKIE } from "@/lib/auth/session";
 
-export function middleware(request: NextRequest) {
-  const session = request.cookies.get("cairn_session")?.value;
-  const expectedToken = process.env.VAULT_PASSWORD;
+const PUBLIC_PATHS = new Set(["/login", "/signup"]);
 
-  if (!expectedToken) {
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Public pages + all auth endpoints (login / signup / logout).
+  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
 
-  if (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/api/auth") {
-    return NextResponse.next();
-  }
-
-  if (session !== expectedToken) {
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const session = await verifySession(token);
+  if (!session) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -20,5 +21,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Gate everything except Next internals and static assets.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.svg|.*\\.png|.*\\.jpe?g|.*\\.ico|.*\\.webp).*)",
+  ],
 };

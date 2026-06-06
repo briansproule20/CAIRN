@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { PanelLeft, PanelLeftClose } from "lucide-react";
 import { SEARCH_OPEN_EVENT } from "@/components/command-palette";
 
 /**
@@ -12,6 +13,8 @@ import { SEARCH_OPEN_EVENT } from "@/components/command-palette";
  *                                       before the title (e.g. links).
  *  - onMenuClick?: () => void        — opens the mobile sidebar (AppShell wires
  *                                       this; the button only shows on small screens).
+ *  - onToggleSidebar?: () => void    — collapses/expands the desktop (lg+) sidebar.
+ *  - sidebarCollapsed?: boolean      — current desktop sidebar state (drives icon).
  *
  * The search button dispatches the global `cairn:open-search` window event,
  * which <CommandPalette> listens for.
@@ -20,10 +23,14 @@ export function Topbar({
   title,
   breadcrumb,
   onMenuClick,
+  onToggleSidebar,
+  sidebarCollapsed,
 }: {
   title?: ReactNode;
   breadcrumb?: ReactNode;
   onMenuClick?: () => void;
+  onToggleSidebar?: () => void;
+  sidebarCollapsed?: boolean;
 }) {
   function openSearch() {
     window.dispatchEvent(new CustomEvent(SEARCH_OPEN_EVENT));
@@ -62,6 +69,23 @@ export function Topbar({
           </span>
         )}
       </div>
+
+      {/* Desktop sidebar collapse toggle (lg+ only) */}
+      {onToggleSidebar && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-pressed={sidebarCollapsed}
+          className="hidden h-9 w-9 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-accent-soft lg:grid"
+        >
+          {sidebarCollapsed ? (
+            <PanelLeft aria-hidden className="h-[1.15rem] w-[1.15rem]" />
+          ) : (
+            <PanelLeftClose aria-hidden className="h-[1.15rem] w-[1.15rem]" />
+          )}
+        </button>
+      )}
 
       {/* Search trigger */}
       <button

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { formatNotesToMdx, PonchoError } from "@/lib/poncho";
+import { resolvePonchoKey } from "@/lib/auth/poncho-key";
 
 // Poncho is an agent — give the run room to breathe.
 export const maxDuration = 120;
@@ -26,7 +27,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const markdown = await formatNotesToMdx(notes, { category });
+    const apiKey = (await resolvePonchoKey()) ?? undefined;
+    const markdown = await formatNotesToMdx(notes, { category, apiKey });
     return NextResponse.json({ markdown });
   } catch (err) {
     if (err instanceof PonchoError) {

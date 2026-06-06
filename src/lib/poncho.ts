@@ -28,11 +28,16 @@ export class PonchoError extends Error {
   }
 }
 
-function getConfig(): { base: string; apiKey: string; model?: string } {
-  const apiKey = process.env.PONCHO_API_KEY;
+function getConfig(apiKeyOverride?: string): {
+  base: string;
+  apiKey: string;
+  model?: string;
+} {
+  // BYOPK: prefer the per-user key passed in; fall back to the env key.
+  const apiKey = apiKeyOverride || process.env.PONCHO_API_KEY;
   if (!apiKey) {
     throw new PonchoError(
-      "PONCHO_API_KEY is not set. Add your Poncho key (pk_poncho_…) to .env.local and restart the dev server."
+      "No Poncho key available. Add your Poncho key (pk_poncho_…) in onboarding or Settings."
     );
   }
   const base = (process.env.PONCHO_API_BASE || DEFAULT_BASE).replace(/\/+$/, "");
@@ -221,9 +226,9 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
  */
 export async function askPoncho(
   message: string,
-  opts: { timeoutMs?: number } = {}
+  opts: { timeoutMs?: number; apiKey?: string } = {}
 ): Promise<string> {
-  const { base, apiKey, model } = getConfig();
+  const { base, apiKey, model } = getConfig(opts.apiKey);
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -269,7 +274,7 @@ function stripCodeFence(text: string): string {
  */
 export async function formatNotesToMdx(
   notes: string,
-  opts: { category?: string } = {}
+  opts: { category?: string; apiKey?: string } = {}
 ): Promise<string> {
   const today = new Date().toISOString().split("T")[0];
   const categoryLine = opts.category
@@ -300,7 +305,7 @@ After the frontmatter, write the cleaned-up content as well-structured Markdown:
 RAW NOTES:
 ${notes}`;
 
-  const reply = await askPoncho(prompt);
+  const reply = await askPoncho(prompt, { apiKey: opts.apiKey });
   return stripCodeFence(reply);
 }
 
@@ -310,7 +315,7 @@ ${notes}`;
  */
 export async function researchTopic(
   topic: string,
-  opts: { category?: string } = {}
+  opts: { category?: string; apiKey?: string } = {}
 ): Promise<string> {
   const today = new Date().toISOString().split("T")[0];
   const categoryLine = opts.category
@@ -342,7 +347,7 @@ Then the body as structured Markdown:
 TOPIC TO RESEARCH:
 ${topic}`;
 
-  const reply = await askPoncho(prompt);
+  const reply = await askPoncho(prompt, { apiKey: opts.apiKey });
   return stripCodeFence(reply);
 }
 
@@ -351,7 +356,7 @@ ${topic}`;
  */
 export async function writeCopy(
   brief: string,
-  opts: { category?: string } = {}
+  opts: { category?: string; apiKey?: string } = {}
 ): Promise<string> {
   const prompt = `Write copy based on the brief below. Return clean, ready-to-use Markdown only — no preamble, no commentary, no surrounding code fences.
 
@@ -365,7 +370,7 @@ Guidelines:
 BRIEF:
 ${brief}`;
 
-  const reply = await askPoncho(prompt);
+  const reply = await askPoncho(prompt, { apiKey: opts.apiKey });
   return stripCodeFence(reply);
 }
 
@@ -480,9 +485,9 @@ export function stepsToText(steps: PonchoStep[]): string {
  */
 export async function* streamPoncho(
   prompt: string,
-  opts: { signal?: AbortSignal; timeoutMs?: number } = {}
+  opts: { signal?: AbortSignal; timeoutMs?: number; apiKey?: string } = {}
 ): AsyncGenerator<PonchoSnapshot> {
-  const { base, apiKey, model } = getConfig();
+  const { base, apiKey, model } = getConfig(opts.apiKey);
   const signal = opts.signal ?? new AbortController().signal;
   const timeoutMs = opts.timeoutMs ?? 300_000;
 
@@ -542,8 +547,11 @@ export interface PonchoChatSummary {
 }
 
 /** List the agent's recent Poncho chats (newest activity first, no archived). */
-export async function listChats(limit = 30): Promise<PonchoChatSummary[]> {
-  const { base, apiKey } = getConfig();
+export async function listChats(
+  limit = 30,
+  apiKeyOverride?: string
+): Promise<PonchoChatSummary[]> {
+  const { base, apiKey } = getConfig(apiKeyOverride);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
   try {
@@ -620,8 +628,11 @@ export interface PonchoChatTranscript {
 }
 
 /** Fetch one chat's full transcript (all messages) for display in CAIRN. */
-export async function getChat(chatId: string): Promise<PonchoChatTranscript> {
-  const { base, apiKey } = getConfig();
+export async function getChat(
+  chatId: string,
+  apiKeyOverride?: string
+): Promise<PonchoChatTranscript> {
+  const { base, apiKey } = getConfig(apiKeyOverride);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20_000);
   try {

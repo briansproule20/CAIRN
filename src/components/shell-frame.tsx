@@ -2,9 +2,15 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
 
 const SIDEBAR_WIDTH = "16rem"; // w-64
+const SIDEBAR_WIDTH_PX = 256; // 16rem
+const COLLAPSE_KEY = "cairn:sidebar-collapsed";
+
+// Quick, clean (non-bouncy) tween shared by the rail + content offset.
+const COLLAPSE_TRANSITION = { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
 
 /**
  * ShellFrame — client layout scaffold for <AppShell>.
@@ -24,7 +30,46 @@ export function ShellFrame({
   children: ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Desktop (lg+) sidebar collapse. Defaults to expanded; the persisted value
+  // is read in an effect to avoid an SSR/hydration mismatch.
+  const [collapsed, setCollapsed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  // Whether we're at the lg+ breakpoint (the desktop sidebar / offset only
+  // exist there). Tracked so the content offset animates only on desktop.
+  const [isDesktop, setIsDesktop] = useState(false);
   const pathname = usePathname();
+
+  // Restore persisted collapse state after mount (client-only).
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "true");
+    } catch {
+      /* ignore (private mode / disabled storage) */
+    }
+    setHydrated(true);
+  }, []);
+
+  // Track the lg breakpoint (1024px) so the content offset only animates when
+  // the desktop rail is actually present.
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktop(mql.matches);
+    sync();
+    mql.addEventListener("change", sync);
+    return () => mql.removeEventListener("change", sync);
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   // Close the mobile drawer on navigation.
   useEffect(() => {
@@ -48,13 +93,18 @@ export function ShellFrame({
 
   return (
     <div className="min-h-screen">
-      {/* ---- Desktop sidebar: fixed, full height ---- */}
-      <aside
-        className="fixed inset-y-0 left-0 z-40 hidden border-r border-border bg-surface lg:block"
+      {/* ---- Desktop sidebar: fixed, full height. Slides out (transform) on
+            collapse so the off-screen rail keeps its width / no reflow jank. ---- */}
+      <motion.aside
+        className="fixed inset-y-0 left-0 z-40 hidden overflow-hidden border-r border-border bg-surface lg:block"
         style={{ width: SIDEBAR_WIDTH }}
+        initial={false}
+        animate={{ x: collapsed ? -SIDEBAR_WIDTH_PX : 0 }}
+        transition={hydrated ? COLLAPSE_TRANSITION : { duration: 0 }}
+        aria-hidden={collapsed}
       >
         {sidebar}
-      </aside>
+      </motion.aside>
 
       {/* ---- Mobile drawer ---- */}
       {drawerOpen && (
@@ -77,17 +127,31 @@ export function ShellFrame({
         </div>
       )}
 
-      {/* ---- Content column ---- */}
-      <div className="lg:pl-64">
+      {/* ---- Content column. Left offset matches the desktop rail and animates
+            in lockstep with the collapse so content reflows cleanly. ---- */}
+      <motion.div
+        // Before hydration, fall back to the CSS class (`lg:pl-64`) to avoid a
+        // first-paint flash; once hydrated, motion drives the inline offset.
+        className={hydrated ? undefined : "lg:pl-64"}
+        initial={false}
+        animate={
+          hydrated
+            ? { paddingLeft: isDesktop && !collapsed ? SIDEBAR_WIDTH_PX : 0 }
+            : {}
+        }
+        transition={COLLAPSE_TRANSITION}
+      >
         <Topbar
           title={title}
           breadcrumb={breadcrumb}
           onMenuClick={() => setDrawerOpen(true)}
+          onToggleSidebar={toggleCollapsed}
+          sidebarCollapsed={collapsed}
         />
         <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
           {children}
         </main>
-      </div>
+      </motion.div>
     </div>
   );
 }

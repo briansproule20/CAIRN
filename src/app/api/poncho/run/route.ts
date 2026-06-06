@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolvePonchoKey } from "@/lib/auth/poncho-key";
 import {
   formatNotesToMdx,
   researchTopic,
@@ -41,9 +42,12 @@ export async function POST(request: NextRequest) {
 
   try {
     let result: string;
-    if (mode === "research") result = await researchTopic(input, { category });
-    else if (mode === "write") result = await writeCopy(input, { category });
-    else result = await formatNotesToMdx(input, { category });
+    const apiKey = (await resolvePonchoKey()) ?? undefined;
+    if (mode === "research")
+      result = await researchTopic(input, { category, apiKey });
+    else if (mode === "write")
+      result = await writeCopy(input, { category, apiKey });
+    else result = await formatNotesToMdx(input, { category, apiKey });
 
     return NextResponse.json({ mode, result });
   } catch (err) {

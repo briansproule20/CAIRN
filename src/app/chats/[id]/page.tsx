@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { ChatActions } from "@/components/chat-actions";
 import { MDXContent } from "@/components/mdx-content";
 import { getChat, PonchoError, type PonchoStep } from "@/lib/poncho";
+import { resolvePonchoKey } from "@/lib/auth/poncho-key";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chat · CAIRN" };
@@ -84,7 +85,8 @@ export default async function ChatPage({
   let transcript: Awaited<ReturnType<typeof getChat>> | null = null;
   let error = "";
   try {
-    transcript = await getChat(id);
+    const apiKey = (await resolvePonchoKey()) ?? undefined;
+    transcript = await getChat(id, apiKey);
   } catch (err) {
     error =
       err instanceof PonchoError ? err.message : "Could not load this chat.";
