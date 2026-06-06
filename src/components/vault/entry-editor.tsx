@@ -22,6 +22,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+interface PonchoStep {
+  kind: "reasoning" | "tool" | "text";
+  text?: string;
+  name?: string;
+  state?: string;
+  done?: boolean;
+}
+
+/** Make a raw tool name readable: "mcp__agentcash__search" -> "agentcash · search". */
+function prettyTool(name?: string): string {
+  if (!name) return "tool";
+  return name.replace(/^mcp__/, "").replace(/__/g, " · ");
+}
+
 /**
  * EntryEditor — wraps an entry's read view and provides in-app editing.
  *
@@ -66,6 +80,8 @@ export function EntryEditor({
   const [enrichOpen, setEnrichOpen] = useState(false);
   const [instructions, setInstructions] = useState("");
   const [enriching, setEnriching] = useState(false);
+  const [enrichSteps, setEnrichSteps] = useState<PonchoStep[]>([]);
+  const enrichLogRef = useRef<HTMLDivElement | null>(null);
 
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [showMd, setShowMd] = useState(false);
@@ -190,28 +206,91 @@ export function EntryEditor({
     }
   }
 
-  // Send the entry (plain text) + the user's instructions to Poncho, then load
-  // the enriched result into the editor for review before saving.
+  // Load the enriched markdown into the editor for review (never auto-saves).
+  function loadEnriched(result: string) {
+    setTitle(initialTitle);
+    setTags(initialTags.join(", "));
+    setStatus(initialStatus);
+    setContent(result);
+    setEnrichOpen(false);
+    setInstructions("");
+    setEnrichSteps([]);
+    setEditing(true);
+  }
+
+  // Parse one SSE frame ("event: …\ndata: …") from the enrich stream.
+  function handleEnrichFrame(frame: string) {
+    let event = "message";
+    const dataLines: string[] = [];
+    for (const line of frame.split("\n")) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+    }
+    if (dataLines.length === 0) return;
+    let data: {
+      status?: string;
+      steps?: PonchoStep[];
+      result?: string;
+      partial?: string;
+      error?: string;
+    };
+    try {
+      data = JSON.parse(dataLines.join("\n"));
+    } catch {
+      return;
+    }
+    if (event === "progress") {
+      if (Array.isArray(data.steps)) {
+        // Show the trace — reasoning + tool calls (drop interstitial text).
+        setEnrichSteps(data.steps.filter((s) => s.kind !== "text"));
+        requestAnimationFrame(() => {
+          enrichLogRef.current?.scrollTo({
+            top: enrichLogRef.current.scrollHeight,
+          });
+        });
+      }
+    } else if (event === "done") {
+      loadEnriched(data.result || "");
+    } else if (event === "timeout") {
+      setError(
+        "Poncho ran past the time limit — here's what it produced so far."
+      );
+      if (data.partial) loadEnriched(data.partial);
+    } else if (event === "error") {
+      setError(data.error || "Poncho couldn't enrich that.");
+    }
+  }
+
+  // Stream the enrich run so the author can watch Poncho work, then load the
+  // result into the editor for review before saving.
   async function enrich() {
     if (enriching) return;
     setEnriching(true);
     setError("");
+    setEnrichSteps([]);
     try {
       const res = await fetch("/api/poncho/enrich", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: initialContent, instructions }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Poncho couldn't enrich that.");
-      if (typeof data.markdown === "string") {
-        setTitle(initialTitle);
-        setTags(initialTags.join(", "));
-        setStatus(initialStatus);
-        setContent(data.markdown);
-        setEnrichOpen(false);
-        setInstructions("");
-        setEditing(true);
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Poncho couldn't enrich that.");
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let i: number;
+        while ((i = buf.indexOf("\n\n")) !== -1) {
+          const frame = buf.slice(0, i);
+          buf = buf.slice(i + 2);
+          if (frame.trim()) handleEnrichFrame(frame);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Poncho couldn't enrich that.");
@@ -235,6 +314,7 @@ export function EntryEditor({
                 onClick={() => {
                   setError("");
                   setInstructions("");
+                  setEnrichSteps([]);
                   setEnrichOpen(true);
                 }}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-accent-dim/50 bg-accent/5 px-3 py-1.5 text-xs font-medium text-accent-soft transition-colors hover:border-accent-dim hover:bg-accent/10"
@@ -283,6 +363,63 @@ export function EntryEditor({
                 placeholder="e.g. add historical context and a sources section, tighten the intro, expand the second half… (optional)"
                 className="w-full resize-y rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm leading-relaxed text-text outline-none transition-colors placeholder:text-faint hover:border-border-strong focus-visible:border-accent-dim focus-visible:ring-2 focus-visible:ring-accent/40"
               />
+
+              {/* Live activity — watch Poncho work */}
+              {(enriching || enrichSteps.length > 0) && (
+                <div className="mt-3 space-y-2 rounded-lg border border-border bg-surface-2/60 p-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        enriching ? "animate-pulse bg-accent" : "bg-accent-dim"
+                      }`}
+                    />
+                    <span className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faint">
+                      {enriching ? "Poncho is working" : "Trace"}
+                    </span>
+                  </div>
+                  {enrichSteps.length > 0 && (
+                    <div
+                      ref={enrichLogRef}
+                      className="max-h-40 space-y-1.5 overflow-y-auto pr-1"
+                    >
+                      {enrichSteps.map((s, i) =>
+                        s.kind === "tool" ? (
+                          <div
+                            key={i}
+                            className="flex items-center gap-2 text-[0.6875rem] text-muted"
+                          >
+                            {s.done ? (
+                              <span aria-hidden className="text-accent">
+                                ✓
+                              </span>
+                            ) : (
+                              <span
+                                aria-hidden
+                                className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-accent-dim/40 border-t-accent-dim"
+                              />
+                            )}
+                            <span className="font-mono text-accent-soft">
+                              {prettyTool(s.name)}
+                            </span>
+                            {!s.done && (
+                              <span className="text-faint">running…</span>
+                            )}
+                          </div>
+                        ) : (
+                          <p
+                            key={i}
+                            className="border-l border-border-strong pl-2.5 text-[0.6875rem] italic leading-relaxed text-faint"
+                          >
+                            {s.text}
+                          </p>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {error && <p className="mt-2 text-xs text-accent-soft">{error}</p>}
               <div className="mt-4 flex items-center justify-end gap-2">
                 <button

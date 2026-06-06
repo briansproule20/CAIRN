@@ -276,33 +276,25 @@ export async function formatNotesToMdx(
   notes: string,
   opts: { category?: string; apiKey?: string } = {}
 ): Promise<string> {
-  const today = new Date().toISOString().split("T")[0];
-  const categoryLine = opts.category
-    ? opts.category
-    : "<best-guess lowercase-hyphenated category>";
+  const prompt = `You are a Markdown formatter. Your ONLY job is to add Markdown syntax to the user's text below. You must preserve every single word of the original text EXACTLY as written.
 
-  const prompt = `You are formatting a user's raw notes into ONE CAIRN vault entry written in MDX.
+Return ONLY the formatted Markdown of the same text. No YAML frontmatter. No preamble. No commentary. No surrounding code fences.
 
-Return ONLY the MDX file contents. No preamble, no commentary, no surrounding code fences.
+What you MAY add (Markdown syntax only):
+- Headings (#, ##, ###) where the text clearly introduces a section.
+- Bullet lists and numbered lists for things that are already enumerations.
+- Bold (**) and italic (*) emphasis on words already present in the text.
+- Blockquotes (>) for quoted passages already present.
+- Code blocks and inline code (\`) for code or code-like content already present.
+- Turn bare URLs that are already in the text into Markdown links.
 
-The file MUST begin with YAML frontmatter in exactly this shape:
----
-title: <concise descriptive title drawn from the notes>
-category: ${categoryLine}
-tags: [<3 to 6 lowercase, single-word-or-hyphenated tags>]
-status: draft
-created: ${today}
-updated: ${today}
----
+What you MUST NOT do:
+- DO NOT change, rewrite, paraphrase, tighten, correct, translate, reorder, add, or remove ANY of the user's words.
+- DO NOT fix grammar, spelling, or punctuation.
+- DO NOT add new sentences, headings text, or list items that aren't in the original words.
+- The prose must come back identical to the input except for the Markdown syntax layered around it.
 
-After the frontmatter, write the cleaned-up content as well-structured Markdown:
-- Organize into clear sections with "##" headings where it helps.
-- Tighten grammar and flow; keep the user's voice and meaning.
-- Use bullet lists for enumerations; preserve any URLs/links.
-- DO NOT invent facts, sources, or details that are not in the notes.
-- If the notes are sparse, keep the entry short rather than padding it.
-
-RAW NOTES:
+TEXT TO FORMAT:
 ${notes}`;
 
   const reply = await askPoncho(prompt, { apiKey: opts.apiKey });
@@ -431,9 +423,9 @@ Research this using your tools, then reply with a clear markdown write-up — sh
 
   if (mode === "format") {
     return `CAIRN · format request
-Clean the notes below into tidy markdown: clear "##" sections, fixed grammar, same meaning, no invented facts. Reply with the markdown only, no preamble.
+Add Markdown syntax ONLY to the text below — preserve every word verbatim. You may add headings, bullet/numbered lists, bold/italic emphasis, blockquotes, code blocks/inline code, and turn bare URLs into Markdown links. DO NOT change, rewrite, paraphrase, tighten, correct, reorder, add, or remove any words; do not fix grammar or spelling. No YAML frontmatter, no preamble, no commentary. Reply with the formatted markdown of the same text only.
 
-Notes:
+Text:
 ${topic}`;
   }
 
