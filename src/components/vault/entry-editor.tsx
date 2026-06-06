@@ -63,6 +63,10 @@ export function EntryEditor({
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
+  const [enrichOpen, setEnrichOpen] = useState(false);
+  const [instructions, setInstructions] = useState("");
+  const [enriching, setEnriching] = useState(false);
+
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [showMd, setShowMd] = useState(false);
 
@@ -186,25 +190,123 @@ export function EntryEditor({
     }
   }
 
+  // Send the entry (plain text) + the user's instructions to Poncho, then load
+  // the enriched result into the editor for review before saving.
+  async function enrich() {
+    if (enriching) return;
+    setEnriching(true);
+    setError("");
+    try {
+      const res = await fetch("/api/poncho/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: initialContent, instructions }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Poncho couldn't enrich that.");
+      if (typeof data.markdown === "string") {
+        setTitle(initialTitle);
+        setTags(initialTags.join(", "));
+        setStatus(initialStatus);
+        setContent(data.markdown);
+        setEnrichOpen(false);
+        setInstructions("");
+        setEditing(true);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Poncho couldn't enrich that.");
+    } finally {
+      setEnriching(false);
+    }
+  }
+
   if (!editing) {
     return (
-      <article className="max-w-3xl">
-        <header className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-3xl text-text">{initialTitle}</h1>
-            <p className="mt-1 font-mono text-xs text-faint">{meta}</p>
+      <>
+        <article className="max-w-3xl">
+          <header className="mb-8 flex items-start justify-between gap-4">
+            <div>
+              <h1 className="font-serif text-3xl text-text">{initialTitle}</h1>
+              <p className="mt-1 font-mono text-xs text-faint">{meta}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setError("");
+                  setInstructions("");
+                  setEnrichOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-accent-dim/50 bg-accent/5 px-3 py-1.5 text-xs font-medium text-accent-soft transition-colors hover:border-accent-dim hover:bg-accent/10"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Enrich
+              </button>
+              <button
+                type="button"
+                onClick={startEditing}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-accent-dim hover:bg-accent/10 hover:text-accent-soft"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </button>
+            </div>
+          </header>
+          {children}
+        </article>
+
+        {enrichOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm [animation:cairn-fade-in_140ms_ease-out]"
+              onClick={() => !enriching && setEnrichOpen(false)}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Enrich with Poncho"
+              className="relative z-10 w-full max-w-md rounded-2xl border border-border-strong bg-surface p-5 shadow-2xl shadow-black/60 [animation:cairn-rise-in_160ms_ease-out]"
+            >
+              <div className="mb-1 flex items-center gap-2 font-serif text-lg text-text">
+                <Sparkles className="h-4 w-4 text-accent-dim" />
+                Enrich with Poncho
+              </div>
+              <p className="mb-3 text-sm leading-relaxed text-muted">
+                How would you like Poncho to enrich this entry?
+              </p>
+              <textarea
+                autoFocus
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                rows={4}
+                disabled={enriching}
+                placeholder="e.g. add historical context and a sources section, tighten the intro, expand the second half… (optional)"
+                className="w-full resize-y rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm leading-relaxed text-text outline-none transition-colors placeholder:text-faint hover:border-border-strong focus-visible:border-accent-dim focus-visible:ring-2 focus-visible:ring-accent/40"
+              />
+              {error && <p className="mt-2 text-xs text-accent-soft">{error}</p>}
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEnrichOpen(false)}
+                  disabled={enriching}
+                  className="rounded-lg px-3 py-2 text-xs font-medium text-muted transition-colors hover:text-text"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={enrich}
+                  disabled={enriching}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-base transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:bg-accent-dim disabled:text-base/70"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {enriching ? "Enriching…" : "Enrich"}
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={startEditing}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-accent-dim hover:bg-accent/10 hover:text-accent-soft"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            Edit
-          </button>
-        </header>
-        {children}
-      </article>
+        )}
+      </>
     );
   }
 

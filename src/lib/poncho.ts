@@ -310,6 +310,36 @@ ${notes}`;
 }
 
 /**
+ * Enrich an existing entry. Passes the current content (plain text) plus the
+ * user's instructions to Poncho and returns improved Markdown.
+ */
+export async function enrichEntry(
+  content: string,
+  instructions: string,
+  opts: { apiKey?: string } = {}
+): Promise<string> {
+  const ask = instructions.trim()
+    ? `The author wants you to enrich it with these instructions:\n${instructions.trim()}`
+    : `Enrich it: tighten the writing, add useful structure, and expand thin sections with accurate, relevant detail.`;
+
+  const prompt = `You are enriching an existing CAIRN vault entry. Improve it and return ONLY the updated content — no preamble, no commentary, no surrounding code fences.
+
+${ask}
+
+Rules:
+- Preserve the author's voice and intent, and keep any existing frontmatter.
+- You may use your tools (web access, etc.) to add accurate detail, but DO NOT invent facts or fabricate sources.
+- Enrich rather than rewrite from scratch — keep what already works.
+- Return well-structured Markdown (headings, lists, links where they help).
+
+CURRENT ENTRY:
+${content}`;
+
+  const reply = await askPoncho(prompt, { apiKey: opts.apiKey });
+  return stripCodeFence(reply);
+}
+
+/**
  * Ask Poncho to research a topic using its own tools (Firecrawl, x402
  * endpoints, web access) and return a structured research brief in Markdown.
  */
