@@ -9,6 +9,7 @@ import { NodeBrowser } from "@/components/vault/node-browser";
 import { CreateNode } from "@/components/vault/create-node";
 import { EntryEditor } from "@/components/vault/entry-editor";
 import { NodeMedia } from "@/components/vault/node-media";
+import { SandboxedHtml } from "@/components/sandboxed-html";
 import { FolderActions } from "@/components/vault/folder-actions";
 import { FolderTitle } from "@/components/vault/folder-title";
 import { getCurrentUserId } from "@/lib/auth/current-user";
@@ -114,7 +115,10 @@ export default async function NodePathPage({
   }
 
   // entry
-  const source = await serializeMdx(node.content || "").catch(() => null);
+  const isHtmlNode = node.mediaType === "text/html" && !!node.content?.trim();
+  const source = isHtmlNode
+    ? null
+    : await serializeMdx(node.content || "").catch(() => null);
   const parentPath =
     path.length > 1
       ? "/vault/" + path.slice(0, -1).map(encodeURIComponent).join("/")
@@ -144,7 +148,11 @@ export default async function NodePathPage({
             />
           </div>
         )}
-        {node.content?.trim() ? (
+        {isHtmlNode ? (
+          <div className="mb-6">
+            <SandboxedHtml html={node.content!} title={node.title} />
+          </div>
+        ) : node.content?.trim() ? (
           source ? (
             <div className="prose-cairn">
               <MDXContent source={source} />

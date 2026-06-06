@@ -1,12 +1,47 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Check, File, Folder } from "lucide-react";
 import { ChatActions } from "@/components/chat-actions";
+import { HtmlSave } from "@/components/html-save";
 import { MediaSave } from "@/components/media-save";
+import { SandboxedHtml } from "@/components/sandboxed-html";
 import { NodeMedia } from "@/components/vault/node-media";
 import { type MediaArtifact } from "@/lib/poncho";
 
-type Mode = "research" | "write" | "format" | "media";
+type Mode = "research" | "write" | "format" | "media" | "build";
+
+interface TreeNode {
+  id: string;
+  parentId: string | null;
+  slug: string;
+  title: string;
+  kind: "folder" | "entry";
+}
+
+/** Depth-first list of folders AND entries for the context picker. */
+function orderedNodes(tree: TreeNode[]): { node: TreeNode; depth: number }[] {
+  const byParent = new Map<string | null, TreeNode[]>();
+  for (const n of tree) {
+    const key = n.parentId ?? null;
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key)!.push(n);
+  }
+  const out: { node: TreeNode; depth: number }[] = [];
+  const walk = (parentId: string | null, depth: number) => {
+    const children = byParent.get(parentId) ?? [];
+    // Folders first, then entries, for a stable, scannable tree.
+    const sorted = [...children].sort((a, b) =>
+      a.kind === b.kind ? 0 : a.kind === "folder" ? -1 : 1
+    );
+    for (const c of sorted) {
+      out.push({ node: c, depth });
+      if (c.kind === "folder") walk(c.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
+}
 
 type MediaType = "image" | "meme" | "soundtrack" | "video";
 
@@ -86,6 +121,16 @@ const MODES: ModeConfig[] = [
   },
 ];
 
+const BUILD_MODE: ModeConfig = {
+  id: "build",
+  label: "Build artifact",
+  blurb:
+    "Hand Poncho a brief and it builds a self-contained, interactive HTML artifact. Optionally steer the look with a design language and ground it in vault context.",
+  placeholder:
+    "Describe the artifact to build…\n\ne.g. An interactive timeline of the project's milestones with hover detail cards.",
+  cta: "Build artifact",
+};
+
 const MEDIA_MODE: ModeConfig = {
   id: "media",
   label: "Media",
@@ -100,6 +145,7 @@ const emptyInputs: Record<Mode, string> = {
   write: "",
   format: "",
   media: "",
+  build: "",
 };
 
 interface Step {
@@ -129,7 +175,42 @@ export function PonchoWorkspace() {
   const [error, setError] = useState("");
   const logRef = useRef<HTMLDivElement | null>(null);
 
+  // Build-mode state: design language, vault context selection, and the tree.
+  const [designLanguage, setDesignLanguage] = useState("");
+  const [contextIds, setContextIds] = useState<Set<string>>(new Set());
+  const [tree, setTree] = useState<TreeNode[] | null>(null);
+
   const isMedia = mode === "media";
+  const isBuild = mode === "build";
+
+  // Lazily load the vault tree the first time Build mode is opened.
+  useEffect(() => {
+    if (mode !== "build" || tree !== null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/nodes/tree");
+        const data = await res.json();
+        if (!cancelled) setTree(Array.isArray(data.tree) ? data.tree : []);
+      } catch {
+        if (!cancelled) setTree([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, tree]);
+
+  const nodeList = orderedNodes(tree ?? []);
+
+  function toggleContext(id: string) {
+    setContextIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const activeMediaType = MEDIA_TYPES.find((t) => t.id === mediaType)!;
   const active = isMedia
     ? {
@@ -137,10 +218,12 @@ export function PonchoWorkspace() {
         placeholder: activeMediaType.placeholder,
         cta: activeMediaType.cta,
       }
-    : MODES.find((m) => m.id === mode)!;
+    : isBuild
+      ? BUILD_MODE
+      : MODES.find((m) => m.id === mode)!;
   const input = inputs[mode];
 
-  const ALL_TABS: ModeConfig[] = [...MODES, MEDIA_MODE];
+  const ALL_TABS: ModeConfig[] = [...MODES, BUILD_MODE, MEDIA_MODE];
 
   // Live answer text accumulates from the streamed text parts.
   const liveText = steps
@@ -215,7 +298,16 @@ export function PonchoWorkspace() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          isMedia ? { mode, mediaType, input } : { mode, input }
+          isMedia
+            ? { mode, mediaType, input }
+            : isBuild
+              ? {
+                  mode,
+                  input,
+                  designLanguage: designLanguage.trim() || undefined,
+                  contextIds: [...contextIds],
+                }
+              : { mode, input }
         ),
       });
       if (!res.ok || !res.body) {
@@ -312,6 +404,86 @@ export function PonchoWorkspace() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Build mode: design language + vault context picker */}
+      {isBuild && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label
+              htmlFor="poncho-design-language"
+              className="block font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faint"
+            >
+              Design language{" "}
+              <span className="normal-case tracking-normal text-faint/70">
+                (optional)
+              </span>
+            </label>
+            <input
+              id="poncho-design-language"
+              value={designLanguage}
+              onChange={(e) => setDesignLanguage(e.target.value)}
+              disabled={loading}
+              placeholder="e.g. brutalist, mono, high-contrast"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text outline-none transition-colors placeholder:text-faint hover:border-border-strong focus-visible:border-accent-dim focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-60"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="flex items-center justify-between font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faint">
+              <span>
+                Vault context{" "}
+                <span className="normal-case tracking-normal text-faint/70">
+                  (optional)
+                </span>
+              </span>
+              {contextIds.size > 0 && (
+                <span className="text-accent-soft">{contextIds.size} selected</span>
+              )}
+            </p>
+            <div className="max-h-44 overflow-y-auto rounded-lg border border-border bg-surface">
+              {tree === null ? (
+                <p className="px-2.5 py-2 font-mono text-[0.6875rem] text-faint">
+                  Loading…
+                </p>
+              ) : nodeList.length === 0 ? (
+                <p className="px-2.5 py-2 font-mono text-[0.6875rem] text-faint">
+                  Vault is empty.
+                </p>
+              ) : (
+                nodeList.map(({ node: n, depth }) => {
+                  const selected = contextIds.has(n.id);
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={selected}
+                      disabled={loading}
+                      onClick={() => toggleContext(n.id)}
+                      style={{ paddingLeft: `${0.625 + depth * 0.85}rem` }}
+                      className={`flex w-full items-center justify-between gap-2 py-1.5 pr-2.5 text-left text-sm transition-colors disabled:opacity-50 ${
+                        selected
+                          ? "bg-accent/10 text-accent-soft"
+                          : "text-muted hover:bg-surface-2"
+                      }`}
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        {n.kind === "folder" ? (
+                          <Folder className="h-3.5 w-3.5 shrink-0 text-accent-dim" />
+                        ) : (
+                          <File className="h-3.5 w-3.5 shrink-0 text-faint" />
+                        )}
+                        <span className="truncate">{n.title}</span>
+                      </span>
+                      {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -449,8 +621,26 @@ export function PonchoWorkspace() {
         </div>
       )}
 
-      {/* Final result (text). Hidden in media mode — media shows above. */}
-      {result && !isMedia && (
+      {/* Generated artifact (build mode) — render the HTML sandboxed. */}
+      {result && isBuild && (
+        <div className="space-y-3 [animation:cairn-rise-in_180ms_ease-out]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+              Generated artifact
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[0.6875rem] text-faint">
+                Saved to Artifacts
+              </span>
+              <HtmlSave html={result} defaultTitle={input.trim() || "Generated artifact"} />
+            </div>
+          </div>
+          <SandboxedHtml html={result} title="Generated artifact" />
+        </div>
+      )}
+
+      {/* Final result (text). Hidden in media/build modes — those render above. */}
+      {result && !isMedia && !isBuild && (
         <div className="space-y-3 [animation:cairn-rise-in_180ms_ease-out]">
           <div className="flex items-center justify-between">
             <h2 className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">

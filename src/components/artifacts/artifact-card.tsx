@@ -3,6 +3,8 @@
 import { Trash2, Code2 } from "lucide-react";
 import { NodeMedia } from "@/components/vault/node-media";
 import { MediaSave } from "@/components/media-save";
+import { HtmlSave } from "@/components/html-save";
+import { SandboxedHtml } from "@/components/sandboxed-html";
 import { type MediaArtifact } from "@/lib/poncho";
 import type { Artifact } from "@/lib/db/schema";
 
@@ -38,6 +40,9 @@ export function ArtifactCard({
 }) {
   const created = formatCreated(artifact.createdAt);
 
+  // HTML artifacts carry their markup in `content` and render sandboxed.
+  const isHtml = artifact.kind === "html" && !!artifact.content?.trim();
+
   // Map the Artifact row onto the MediaArtifact shape MediaSave/NodeMedia want.
   // The guard narrows `kind` to the literal union MediaArtifact requires.
   const renderable = isRenderableMedia(artifact.kind);
@@ -65,6 +70,16 @@ export function ArtifactCard({
             title={artifact.title}
             description={artifact.description}
           />
+        ) : isHtml ? (
+          <div className="space-y-2 p-4">
+            {artifact.title && (
+              <p className="font-serif text-sm text-text">{artifact.title}</p>
+            )}
+            <SandboxedHtml
+              html={artifact.content!}
+              title={artifact.title || "HTML artifact"}
+            />
+          </div>
         ) : (
           <HtmlPreview artifact={artifact} />
         )}
@@ -76,6 +91,12 @@ export function ArtifactCard({
         </span>
         <div className="flex items-center gap-2">
           {renderable && <MediaSave artifact={mediaArtifact} />}
+          {isHtml && (
+            <HtmlSave
+              html={artifact.content!}
+              defaultTitle={artifact.title || "Generated artifact"}
+            />
+          )}
           <button
             type="button"
             onClick={discard}
