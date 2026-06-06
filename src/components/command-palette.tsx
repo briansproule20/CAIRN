@@ -272,7 +272,7 @@ export function CommandPalette() {
           own corners rounded (the scroll region / footer) handle it
           themselves. */}
       <div className="relative w-full max-w-xl rounded-2xl border border-border-strong bg-surface shadow-2xl shadow-black/60 [animation:cairn-rise-in_180ms_ease-out]">
-        <div className="flex items-center gap-3 rounded-t-2xl border-b border-border px-4 focus-within:ring-2 focus-within:ring-accent/60">
+        <div className="flex items-center gap-3 rounded-t-2xl border-b border-border px-4">
           {loading ? (
             <svg
               aria-hidden

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
-import { Settings, LogOut } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Settings, ChevronDown, Home } from "lucide-react";
 
 export interface SidebarCategory {
   /** raw folder name, e.g. "head-canon" */
@@ -30,64 +30,20 @@ interface ChatSummary {
  */
 export function SidebarNav({ categories }: { categories: SidebarCategory[] }) {
   const pathname = usePathname() ?? "";
-  const router = useRouter();
-
-  async function handleLogout() {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch {
-      /* ignore — redirect regardless */
-    }
-    router.push("/login");
-    router.refresh();
-  }
 
   return (
     <nav aria-label="Primary" className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 pt-1 pb-4">
-        {/* Tools */}
-        <Group label="Tools">
-          <NavRow
-            href="/poncho"
-            active={pathname === "/poncho"}
-            icon={
-              <Image
-                src="/poncho-mark.svg"
-                alt=""
-                width={18}
-                height={19}
-                className="-my-0.5 shrink-0"
-              />
-            }
-          >
-            Poncho
-          </NavRow>
-          <NavRow
-            href="/tags"
-            active={pathname === "/tags" || pathname.startsWith("/tags/")}
-            icon={
-              <TagIcon />
-            }
-          >
-            Tags
-          </NavRow>
-          <NavRow
-            href="/settings"
-            active={pathname === "/settings"}
-            icon={<Settings className="h-3.5 w-3.5 shrink-0" />}
-          >
-            Settings
-          </NavRow>
-        </Group>
-
         {/* Vault */}
         <Group label="Vault">
-          {categories.length === 0 ? (
-            <p className="px-2 py-1 text-xs leading-relaxed text-muted">
-              No entries yet. Use{" "}
-              <span className="text-accent-dim">+ New Entry</span> to begin.
-            </p>
-          ) : (
+          <NavRow
+            href="/"
+            active={pathname === "/"}
+            icon={<Home className="h-3.5 w-3.5 shrink-0" />}
+          >
+            Home
+          </NavRow>
+          {categories.length > 0 && (
             <ul className="space-y-0.5">
               {categories.map((cat) => {
                 const active =
@@ -130,6 +86,39 @@ export function SidebarNav({ categories }: { categories: SidebarCategory[] }) {
           )}
         </Group>
 
+        {/* Tools */}
+        <Group label="Tools">
+          <NavRow
+            href="/poncho"
+            active={pathname === "/poncho"}
+            icon={
+              <Image
+                src="/poncho-mark.svg"
+                alt=""
+                width={18}
+                height={19}
+                className="-my-0.5 shrink-0"
+              />
+            }
+          >
+            Poncho
+          </NavRow>
+          <NavRow
+            href="/tags"
+            active={pathname === "/tags" || pathname.startsWith("/tags/")}
+            icon={<TagIcon />}
+          >
+            Tags
+          </NavRow>
+          <NavRow
+            href="/settings"
+            active={pathname === "/settings"}
+            icon={<Settings className="h-3.5 w-3.5 shrink-0" />}
+          >
+            Settings
+          </NavRow>
+        </Group>
+
         {/* Chats */}
         <Group label="Chats">
           <ChatsNav pathname={pathname} />
@@ -157,18 +146,6 @@ export function SidebarNav({ categories }: { categories: SidebarCategory[] }) {
           New Chat
         </Link>
       </div>
-
-      {/* Log out */}
-      <div className="shrink-0 px-3 pb-3">
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
-        >
-          <LogOut className="h-3.5 w-3.5 shrink-0" />
-          Log out
-        </button>
-      </div>
     </nav>
   );
 }
@@ -176,16 +153,29 @@ export function SidebarNav({ categories }: { categories: SidebarCategory[] }) {
 function Group({
   label,
   children,
+  defaultOpen = true,
 }: {
   label: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div>
-      <p className="px-2 pb-1.5 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faint">
-        {label}
-      </p>
-      {children}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between rounded-md px-2 pb-1.5 pt-0.5 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faint transition-colors hover:text-muted"
+      >
+        <span>{label}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 transition-transform duration-150 ${
+            open ? "" : "-rotate-90"
+          }`}
+        />
+      </button>
+      {open && children}
     </div>
   );
 }

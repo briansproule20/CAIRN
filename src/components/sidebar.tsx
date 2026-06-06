@@ -27,7 +27,7 @@ export function Sidebar() {
       <div className="px-5 pt-6 pb-5">
         <Link
           href="/"
-          className="group inline-flex items-baseline gap-2"
+          className="group inline-flex items-center gap-2"
           aria-label="CAIRN home"
         >
           <CairnMark className="h-6 w-5 shrink-0 text-accent" />
@@ -35,9 +35,6 @@ export function Sidebar() {
             CAIRN
           </span>
         </Link>
-        <p className="mt-1.5 pl-7 font-mono text-[0.625rem] uppercase tracking-[0.18em] text-faint">
-          the archive
-        </p>
       </div>
 
       <SidebarNav categories={categories} />

@@ -1,6 +1,10 @@
 import Link from "next/link";
+import Image from "next/image";
+import matter from "gray-matter";
+import { serialize } from "next-mdx-remote/serialize";
 import { AppShell } from "@/components/app-shell";
 import { ChatActions } from "@/components/chat-actions";
+import { MDXContent } from "@/components/mdx-content";
 import { getChat, PonchoError, type PonchoStep } from "@/lib/poncho";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +16,41 @@ function prettyTool(name?: string): string {
   return name.replace(/^mcp__/, "").replace(/__/g, " · ");
 }
 
-function Step({ step }: { step: PonchoStep }) {
+/** Raw monospace fallback for text that MDX can't parse. */
+function RawText({ text }: { text: string }) {
+  return (
+    <pre className="overflow-auto whitespace-pre-wrap rounded-xl border border-border bg-surface px-4 py-4 font-mono text-[0.8125rem] leading-relaxed text-text">
+      {text}
+    </pre>
+  );
+}
+
+/**
+ * Render a `text` step as real markdown prose.
+ *
+ * Research answers often lead with YAML frontmatter, so strip it with
+ * gray-matter first, then serialize through the same next-mdx-remote
+ * pipeline the vault uses. MDX parsing is stricter than markdown
+ * (curly braces / angle brackets throw), so any failure falls back to a
+ * raw <pre> rather than crashing the page.
+ */
+async function TextStep({ text }: { text: string }) {
+  let body = text;
+  try {
+    body = matter(text).content.trim() || text;
+  } catch {
+    body = text;
+  }
+
+  try {
+    const source = await serialize(body);
+    return <MDXContent source={source} />;
+  } catch {
+    return <RawText text={body} />;
+  }
+}
+
+async function Step({ step }: { step: PonchoStep }) {
   if (step.kind === "tool") {
     return (
       <div className="flex items-center gap-2 text-xs text-muted">
@@ -32,11 +70,8 @@ function Step({ step }: { step: PonchoStep }) {
       </p>
     );
   }
-  return (
-    <pre className="overflow-auto whitespace-pre-wrap rounded-xl border border-border bg-surface px-4 py-4 font-mono text-[0.8125rem] leading-relaxed text-text">
-      {step.text}
-    </pre>
-  );
+  if (!step.text) return null;
+  return <TextStep text={step.text} />;
 }
 
 export default async function ChatPage({
@@ -94,18 +129,44 @@ export default async function ChatPage({
         </p>
       ) : (
         <div className="space-y-7">
-          {transcript.messages.map((m, mi) => (
-            <div key={mi}>
-              <p className="mb-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faint">
-                {m.role === "user" ? "You" : "Poncho"}
-              </p>
-              <div className="space-y-2">
-                {m.steps.map((s, si) => (
-                  <Step key={si} step={s} />
-                ))}
+          {transcript.messages.map((m, mi) => {
+            const isAssistant = m.role !== "user";
+            return (
+              <div
+                key={mi}
+                className={
+                  isAssistant
+                    ? "rounded-r-xl border-l border-accent-dim/40 bg-accent/[0.03] py-3 pl-4 pr-3"
+                    : ""
+                }
+              >
+                {isAssistant ? (
+                  <div className="mb-2 flex items-center gap-2">
+                    <Image
+                      src="/poncho-mark.svg"
+                      alt=""
+                      width={18}
+                      height={18}
+                      aria-hidden
+                      className="opacity-90"
+                    />
+                    <span className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-accent-soft">
+                      Poncho
+                    </span>
+                  </div>
+                ) : (
+                  <p className="mb-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faint">
+                    You
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {m.steps.map((s, si) => (
+                    <Step key={si} step={s} />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </AppShell>
