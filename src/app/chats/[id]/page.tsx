@@ -1,10 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import matter from "gray-matter";
-import { serializeMdx } from "@/lib/mdx";
 import { AppShell } from "@/components/app-shell";
 import { ChatActions } from "@/components/chat-actions";
-import { MDXContent } from "@/components/mdx-content";
+import { MDXServer } from "@/components/mdx-server";
 import { NodeMedia } from "@/components/vault/node-media";
 import { getChat, PonchoError, type PonchoStep } from "@/lib/poncho";
 import { resolvePonchoKey } from "@/lib/auth/poncho-key";
@@ -18,23 +17,11 @@ function prettyTool(name?: string): string {
   return name.replace(/^mcp__/, "").replace(/__/g, " · ");
 }
 
-/** Raw monospace fallback for text that MDX can't parse. */
-function RawText({ text }: { text: string }) {
-  return (
-    <pre className="overflow-auto whitespace-pre-wrap rounded-xl border border-border bg-surface px-4 py-4 font-mono text-[0.8125rem] leading-relaxed text-text">
-      {text}
-    </pre>
-  );
-}
-
 /**
- * Render a `text` step as real markdown prose.
- *
- * Research answers often lead with YAML frontmatter, so strip it with
- * gray-matter first, then serialize through the same next-mdx-remote
- * pipeline the vault uses. MDX parsing is stricter than markdown
- * (curly braces / angle brackets throw), so any failure falls back to a
- * raw <pre> rather than crashing the page.
+ * Render a `text` step as markdown prose. Research answers often lead with YAML
+ * frontmatter, so strip it first, then render via the server-safe MDX renderer
+ * (the client MDXRemote crashes inside a Server Component). MDXServer falls back
+ * to a raw <pre> if the content can't compile.
  */
 async function TextStep({ text }: { text: string }) {
   let body = text;
@@ -43,13 +30,7 @@ async function TextStep({ text }: { text: string }) {
   } catch {
     body = text;
   }
-
-  try {
-    const source = await serializeMdx(body);
-    return <MDXContent source={source} />;
-  } catch {
-    return <RawText text={body} />;
-  }
+  return <MDXServer source={body} />;
 }
 
 async function Step({ step }: { step: PonchoStep }) {

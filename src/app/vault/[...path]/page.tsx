@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { serializeMdx } from "@/lib/mdx";
 import { AppShell } from "@/components/app-shell";
 import { MDXContent } from "@/components/mdx-content";
+import { MDXServer } from "@/components/mdx-server";
 import { type NodeCard } from "@/components/vault/node-grid";
 import { NodeBrowser } from "@/components/vault/node-browser";
 import { CreateNode } from "@/components/vault/create-node";
@@ -68,9 +69,6 @@ export default async function NodePathPage({
         mediaType: c.mediaType,
       }))
     );
-    const overview = node.content?.trim()
-      ? await serializeMdx(node.content).catch(() => null)
-      : null;
     // Subtree powers the inline tree view — only offered when there are
     // nested folders to expand.
     const subtree = await getSubtree(ownerId, node.id);
@@ -94,9 +92,9 @@ export default async function NodePathPage({
             />
           </div>
         </header>
-        {overview && (
-          <div className="prose-cairn mb-10 max-w-3xl">
-            <MDXContent source={overview} />
+        {node.content?.trim() && (
+          <div className="mb-10 max-w-3xl">
+            <MDXServer source={node.content} />
           </div>
         )}
         {items.length === 0 ? (
