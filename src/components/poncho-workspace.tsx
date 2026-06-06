@@ -2,8 +2,51 @@
 
 import { useRef, useState } from "react";
 import { ChatActions } from "@/components/chat-actions";
+import { MediaSave } from "@/components/media-save";
+import { NodeMedia } from "@/components/vault/node-media";
+import { type MediaArtifact } from "@/lib/poncho";
 
-type Mode = "research" | "write" | "format";
+type Mode = "research" | "write" | "format" | "media";
+
+type MediaType = "image" | "meme" | "soundtrack" | "video";
+
+interface MediaTypeConfig {
+  id: MediaType;
+  label: string;
+  placeholder: string;
+  cta: string;
+}
+
+const MEDIA_TYPES: MediaTypeConfig[] = [
+  {
+    id: "image",
+    label: "Image",
+    placeholder:
+      "Describe the image…\n\ne.g. A misty stone cairn at dawn on a Scottish hillside, painterly.",
+    cta: "Generate image",
+  },
+  {
+    id: "meme",
+    label: "Meme",
+    placeholder:
+      "Describe the meme…\n\ne.g. Distracted-boyfriend meme about choosing MDX over Notion.",
+    cta: "Generate meme",
+  },
+  {
+    id: "soundtrack",
+    label: "Soundtrack",
+    placeholder:
+      "Describe the soundtrack…\n\ne.g. A slow, warm ambient loop for a late-night writing session.",
+    cta: "Generate soundtrack",
+  },
+  {
+    id: "video",
+    label: "Video",
+    placeholder:
+      "Describe the video…\n\ne.g. A 5-second loop of rain on a window, cozy and dim.",
+    cta: "Generate video",
+  },
+];
 
 interface ModeConfig {
   id: Mode;
@@ -36,17 +79,27 @@ const MODES: ModeConfig[] = [
     id: "format",
     label: "Format copy",
     blurb:
-      "Paste raw notes. Poncho cleans them into a structured CAIRN entry with frontmatter.",
+      "Paste text. Poncho adds Markdown formatting — headings, lists, emphasis — without changing a word.",
     placeholder:
-      "Paste your raw notes here…\n\nPoncho returns tidy MDX: frontmatter + organized Markdown.",
-    cta: "Format notes",
+      "Paste your text here…\n\nPoncho returns the same words with Markdown structure layered on.",
+    cta: "Format text",
   },
 ];
+
+const MEDIA_MODE: ModeConfig = {
+  id: "media",
+  label: "Media",
+  blurb:
+    "Hand Poncho a prompt and it generates media — an image, a meme, a soundtrack, or a short video. Generation can take a few minutes; watch it work below.",
+  placeholder: "Describe the media…",
+  cta: "Generate",
+};
 
 const emptyInputs: Record<Mode, string> = {
   research: "",
   write: "",
   format: "",
+  media: "",
 };
 
 interface Step {
@@ -66,16 +119,28 @@ function prettyTool(name?: string): string {
 
 export function PonchoWorkspace() {
   const [mode, setMode] = useState<Mode>("research");
+  const [mediaType, setMediaType] = useState<MediaType>("image");
   const [inputs, setInputs] = useState<Record<Mode, string>>(emptyInputs);
   const [loading, setLoading] = useState(false);
   const [steps, setSteps] = useState<Step[]>([]);
   const [status, setStatus] = useState<string>("");
   const [result, setResult] = useState("");
+  const [media, setMedia] = useState<MediaArtifact[]>([]);
   const [error, setError] = useState("");
   const logRef = useRef<HTMLDivElement | null>(null);
 
-  const active = MODES.find((m) => m.id === mode)!;
+  const isMedia = mode === "media";
+  const activeMediaType = MEDIA_TYPES.find((t) => t.id === mediaType)!;
+  const active = isMedia
+    ? {
+        ...MEDIA_MODE,
+        placeholder: activeMediaType.placeholder,
+        cta: activeMediaType.cta,
+      }
+    : MODES.find((m) => m.id === mode)!;
   const input = inputs[mode];
+
+  const ALL_TABS: ModeConfig[] = [...MODES, MEDIA_MODE];
 
   // Live answer text accumulates from the streamed text parts.
   const liveText = steps
@@ -103,11 +168,17 @@ export function PonchoWorkspace() {
       partial?: string;
       error?: string;
       chatId?: string;
+      media?: MediaArtifact[];
     };
     try {
       data = JSON.parse(dataLines.join("\n"));
     } catch {
       return;
+    }
+    // Media artifacts can arrive on either progress or done frames. Track the
+    // latest non-empty array so the result area shows what Poncho produced.
+    if (Array.isArray(data.media) && data.media.length > 0) {
+      setMedia(data.media);
     }
     if (event === "progress") {
       if (data.status) setStatus(data.status);
@@ -137,12 +208,15 @@ export function PonchoWorkspace() {
     setError("");
     setSteps([]);
     setResult("");
+    setMedia([]);
     setStatus("running");
     try {
       const res = await fetch("/api/poncho/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, input }),
+        body: JSON.stringify(
+          isMedia ? { mode, mediaType, input } : { mode, input }
+        ),
       });
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
@@ -179,7 +253,7 @@ export function PonchoWorkspace() {
         aria-label="Poncho modes"
         className="inline-flex rounded-xl border border-border bg-surface p-1"
       >
-        {MODES.map((m) => {
+        {ALL_TABS.map((m) => {
           const selected = m.id === mode;
           return (
             <button
@@ -207,6 +281,39 @@ export function PonchoWorkspace() {
       <p className="max-w-2xl text-sm leading-relaxed text-muted">
         {active.blurb}
       </p>
+
+      {/* Media sub-type selector */}
+      {isMedia && (
+        <div
+          role="radiogroup"
+          aria-label="Media type"
+          className="inline-flex flex-wrap gap-2"
+        >
+          {MEDIA_TYPES.map((t) => {
+            const selected = t.id === mediaType;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={loading}
+                onClick={() => {
+                  setMediaType(t.id);
+                  setError("");
+                }}
+                className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 ${
+                  selected
+                    ? "border-accent-dim bg-accent/15 text-accent-soft"
+                    : "border-border bg-surface text-muted hover:border-border-strong hover:text-text"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Input */}
       <div className="space-y-3">
@@ -318,8 +425,32 @@ export function PonchoWorkspace() {
         </div>
       )}
 
-      {/* Final result */}
-      {result && (
+      {/* Generated media */}
+      {media.length > 0 && (
+        <div className="space-y-3 [animation:cairn-rise-in_180ms_ease-out]">
+          <h2 className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+            Generated media
+          </h2>
+          <div className="space-y-5">
+            {media.map((m, i) => (
+              <div key={`${m.url}-${i}`} className="space-y-2">
+                <NodeMedia
+                  url={m.url}
+                  mediaType={m.mimeType || m.kind}
+                  title={m.title}
+                  description={m.description}
+                />
+                <div className="flex justify-end">
+                  <MediaSave artifact={m} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Final result (text). Hidden in media mode — media shows above. */}
+      {result && !isMedia && (
         <div className="space-y-3 [animation:cairn-rise-in_180ms_ease-out]">
           <div className="flex items-center justify-between">
             <h2 className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">

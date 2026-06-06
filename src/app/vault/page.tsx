@@ -21,6 +21,8 @@ export default async function VaultPage() {
           ? await childCount(ownerId, c.id)
           : undefined,
       status: c.status,
+      mediaUrl: c.mediaUrl,
+      mediaType: c.mediaType,
     }))
   );
 

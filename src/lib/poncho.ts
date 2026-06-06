@@ -400,7 +400,15 @@ ${brief}`;
 // Streaming: watch Poncho work (reasoning + tool calls + text) live.
 // ---------------------------------------------------------------------------
 
-export type PonchoMode = "research" | "write" | "format";
+export type PonchoMode = "research" | "write" | "format" | "media";
+
+export interface MediaArtifact {
+  url: string;
+  kind: "image" | "audio" | "video";
+  mimeType?: string;
+  title?: string;
+  description?: string;
+}
 
 /**
  * Short, demarcated message sent to Poncho. We intentionally keep this brief
@@ -410,9 +418,28 @@ export type PonchoMode = "research" | "write" | "format";
 export function buildPrompt(
   mode: PonchoMode,
   input: string,
-  _opts: { category?: string } = {}
+  _opts: { category?: string; mediaType?: string } = {}
 ): string {
   const topic = input.trim();
+
+  if (mode === "media") {
+    const how: Record<string, string> = {
+      image:
+        "Generate ONE high-quality image with GPT Image 2 (StableStudio's gpt-image-2 generate endpoint, paid via your AgentCash wallet).",
+      meme: "Generate ONE meme image with GPT Image 2 (StableStudio's gpt-image-2 endpoint via your AgentCash wallet). Render the meme caption text directly inside the image.",
+      soundtrack:
+        "Generate a short original soundtrack / audio clip using an available music-or-audio generation endpoint, paid via your AgentCash wallet.",
+      video:
+        "Generate a short video clip using an available video-generation endpoint (e.g. StableStudio), paid via your AgentCash wallet.",
+    };
+    const kind = _opts.mediaType || "image";
+    return `CAIRN · media request
+${how[kind] ?? how.image}
+
+Brief: ${topic}
+
+When the media is ready, present it with the present_artifact tool AND include the final public media URL in your reply. Keep the reply to one short sentence plus the media — no long preamble.`;
+  }
 
   if (mode === "research") {
     return `CAIRN · research note
@@ -449,6 +476,71 @@ export interface PonchoSnapshot {
   steps: PonchoStep[];
   /** The Poncho chat id for this run (so CAIRN can track its own chats). */
   chatId?: string;
+  /** Generated media (image/audio/video) detected in the run, if any. */
+  media?: MediaArtifact[];
+}
+
+const MEDIA_EXT: Record<string, "image" | "audio" | "video"> = {
+  png: "image", jpg: "image", jpeg: "image", webp: "image", gif: "image",
+  mp3: "audio", wav: "audio", m4a: "audio", ogg: "audio", flac: "audio",
+  mp4: "video", webm: "video", mov: "video", m4v: "video",
+};
+
+function kindFromUrl(url: string): "image" | "audio" | "video" | null {
+  const m = url.toLowerCase().match(/\.([a-z0-9]+)(?:\?|#|$)/);
+  return m ? MEDIA_EXT[m[1]] ?? null : null;
+}
+
+/**
+ * Pull generated media out of a Poncho run. Providers (e.g. StableStudio for
+ * GPT Image 2) host the result at a public URL that lands in a tool output;
+ * `present_artifact` parts carry the title/description/mimeType. We scan for
+ * the public media URLs and pair them with that metadata.
+ */
+export function extractMedia(messages: unknown): MediaArtifact[] {
+  if (!Array.isArray(messages)) return [];
+  const raw = JSON.stringify(messages);
+  const urls = [...new Set(raw.match(/https?:\/\/[^\s"'\\)]+/g) ?? [])].filter(
+    (u) =>
+      kindFromUrl(u) !== null ||
+      /public\.blob\.vercel-storage\.com\/(generated|cairn|media)/i.test(u)
+  );
+  if (urls.length === 0) return [];
+
+  const metas: Array<{ title?: string; description?: string; mimeType?: string }> = [];
+  for (const m of messages as PonchoMessage[]) {
+    if (m?.role !== "assistant" || !Array.isArray(m.parts)) continue;
+    for (const p of m.parts as Array<Record<string, unknown>>) {
+      const out = (p?.output ?? p?.data) as Record<string, unknown> | undefined;
+      if (out && out.kind === "artifact-preview") {
+        metas.push({
+          title: typeof out.title === "string" ? out.title : undefined,
+          description:
+            typeof out.description === "string" ? out.description : undefined,
+          mimeType: typeof out.mimeType === "string" ? out.mimeType : undefined,
+        });
+      }
+    }
+  }
+
+  return urls.map((url, i) => {
+    const meta = metas[i] ?? metas[metas.length - 1] ?? {};
+    const kind =
+      (meta.mimeType?.startsWith("image")
+        ? "image"
+        : meta.mimeType?.startsWith("audio")
+          ? "audio"
+          : meta.mimeType?.startsWith("video")
+            ? "video"
+            : kindFromUrl(url)) ?? "image";
+    return {
+      url,
+      kind,
+      mimeType: meta.mimeType,
+      title: meta.title,
+      description: meta.description,
+    };
+  });
 }
 
 /** Normalize the latest assistant message's parts into UI-friendly steps. */
@@ -545,7 +637,12 @@ export async function* streamPoncho(
     // A completed run reports "finished", or settles to "idle" once Poncho's
     // sandbox goes quiet — treat idle-with-output as done so results come back.
     const terminal = status === "finished" || (status === "idle" && hasText);
-    yield { status: terminal ? "finished" : status, steps, chatId };
+    yield {
+      status: terminal ? "finished" : status,
+      steps,
+      chatId,
+      media: extractMedia(data.messages),
+    };
     if (terminal) return;
     if (Date.now() > deadline) {
       yield { status: "timeout", steps, chatId };

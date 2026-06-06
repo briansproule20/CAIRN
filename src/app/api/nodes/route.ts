@@ -22,12 +22,27 @@ export async function POST(request: NextRequest) {
   const kind = body.kind === "folder" ? "folder" : "entry";
   const parentId = body.parentId ? String(body.parentId) : null;
   const content = typeof body.content === "string" ? body.content : "";
+  const mediaUrl =
+    typeof body.mediaUrl === "string" && body.mediaUrl.trim()
+      ? body.mediaUrl.trim()
+      : null;
+  const mediaType =
+    typeof body.mediaType === "string" && body.mediaType.trim()
+      ? body.mediaType.trim()
+      : null;
   if (!title) {
     return NextResponse.json({ error: "A title is required." }, { status: 400 });
   }
 
   try {
-    const node = await createNode(ownerId, { parentId, kind, title, content });
+    const node = await createNode(ownerId, {
+      parentId,
+      kind,
+      title,
+      content,
+      mediaUrl,
+      mediaType,
+    });
     const path = await slugPathFor(ownerId, node);
     return NextResponse.json({
       node: {

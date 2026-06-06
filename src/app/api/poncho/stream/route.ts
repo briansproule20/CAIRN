@@ -23,7 +23,12 @@ function jsonError(message: string, status: number): Response {
 }
 
 export async function POST(request: NextRequest) {
-  let body: { mode?: unknown; input?: unknown; category?: unknown };
+  let body: {
+    mode?: unknown;
+    input?: unknown;
+    category?: unknown;
+    mediaType?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -36,9 +41,16 @@ export async function POST(request: NextRequest) {
     typeof body.category === "string" && body.category.trim()
       ? body.category.trim()
       : undefined;
+  const mediaType =
+    typeof body.mediaType === "string" ? body.mediaType : undefined;
 
-  if (mode !== "research" && mode !== "write" && mode !== "format") {
-    return jsonError("mode must be one of: research, write, format.", 400);
+  if (
+    mode !== "research" &&
+    mode !== "write" &&
+    mode !== "format" &&
+    mode !== "media"
+  ) {
+    return jsonError("mode must be one of: research, write, format, media.", 400);
   }
   if (!input.trim()) {
     return jsonError("Nothing to send — add some input first.", 400);
@@ -46,7 +58,7 @@ export async function POST(request: NextRequest) {
 
   const apiKey = (await resolvePonchoKey()) ?? undefined;
   const ownerId = await getCurrentUserId();
-  const prompt = buildPrompt(mode, input, { category });
+  const prompt = buildPrompt(mode, input, { category, mediaType });
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({

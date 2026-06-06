@@ -68,6 +68,8 @@ export default async function HomePage() {
       kind: t.kind as "folder" | "entry",
       count: t.kind === "folder" ? await childCount(ownerId, t.id) : undefined,
       status: t.status,
+      mediaUrl: t.mediaUrl,
+      mediaType: t.mediaType,
     }))
   );
 

@@ -7,6 +7,7 @@ import { type NodeCard } from "@/components/vault/node-grid";
 import { NodeBrowser } from "@/components/vault/node-browser";
 import { CreateNode } from "@/components/vault/create-node";
 import { EntryEditor } from "@/components/vault/entry-editor";
+import { NodeMedia } from "@/components/vault/node-media";
 import { FolderActions } from "@/components/vault/folder-actions";
 import { FolderTitle } from "@/components/vault/folder-title";
 import { getCurrentUserId } from "@/lib/auth/current-user";
@@ -63,6 +64,8 @@ export default async function NodePathPage({
         kind: c.kind as "folder" | "entry",
         count: c.kind === "folder" ? await childCount(ownerId, c.id) : undefined,
         status: c.status,
+        mediaUrl: c.mediaUrl,
+        mediaType: c.mediaType,
       }))
     );
     const overview = node.content?.trim()
@@ -134,6 +137,15 @@ export default async function NodePathPage({
           </>
         }
       >
+        {node.mediaUrl && (
+          <div className="mb-6">
+            <NodeMedia
+              url={node.mediaUrl}
+              mediaType={node.mediaType}
+              title={node.title}
+            />
+          </div>
+        )}
         {node.content?.trim() ? (
           source ? (
             <div className="prose-cairn">

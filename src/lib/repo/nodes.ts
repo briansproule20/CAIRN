@@ -123,6 +123,8 @@ export async function createNode(
     content?: string;
     status?: string;
     tags?: string[];
+    mediaUrl?: string | null;
+    mediaType?: string | null;
   }
 ): Promise<Node> {
   const db = getDb();
@@ -155,6 +157,8 @@ export async function createNode(
       content: input.content ?? "",
       tags: input.tags ?? [],
       status: input.status ?? "draft",
+      mediaUrl: input.mediaUrl ?? null,
+      mediaType: input.mediaType ?? null,
     })
     .returning();
   return node;

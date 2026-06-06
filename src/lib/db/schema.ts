@@ -68,6 +68,9 @@ export const nodes = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
     status: text("status").notNull().default("draft"),
+    // Generated media stored as a vault item (image/audio/video → public URL).
+    mediaUrl: text("media_url"),
+    mediaType: text("media_type"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
