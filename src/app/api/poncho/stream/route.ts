@@ -6,8 +6,9 @@ import {
   PonchoError,
   type PonchoMode,
 } from "@/lib/poncho";
-import { recordChat } from "@/lib/chat-store";
+import { recordChat } from "@/lib/repo/chats";
 import { resolvePonchoKey } from "@/lib/auth/poncho-key";
+import { getCurrentUserId } from "@/lib/auth/current-user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
   }
 
   const apiKey = (await resolvePonchoKey()) ?? undefined;
+  const ownerId = await getCurrentUserId();
   const prompt = buildPrompt(mode, input, { category });
   const encoder = new TextEncoder();
 
@@ -65,9 +67,13 @@ export async function POST(request: NextRequest) {
           apiKey,
         })) {
           // Track this chat as ours the moment Poncho assigns its id.
-          if (!recorded && snap.chatId) {
+          if (!recorded && snap.chatId && ownerId) {
             recorded = true;
-            recordChat({ id: snap.chatId, title, mode });
+            void recordChat(ownerId, {
+              ponchoChatId: snap.chatId,
+              title,
+              mode,
+            });
           }
           send("progress", snap);
           if (snap.status === "finished") {

@@ -1,31 +1,28 @@
 import Link from "next/link";
 import Image from "next/image";
 import { AppShell } from "@/components/app-shell";
-import { EntryCard } from "@/components/entry-card";
 import { StatTile } from "@/components/dashboard/stat-tile";
-import { CategoryCard } from "@/components/dashboard/category-card";
 import { SectionHeading } from "@/components/dashboard/section-heading";
 import { EmptyVault } from "@/components/dashboard/empty-vault";
+import { NodeGrid, type NodeCard } from "@/components/vault/node-grid";
+import { getCurrentUserId } from "@/lib/auth/current-user";
 import {
-  getAllEntries,
-  getCategories,
-  type VaultEntry,
-} from "@/lib/vault";
+  nodeStats,
+  recentNodes,
+  listChildren,
+  childCount,
+  slugPathFor,
+} from "@/lib/repo/nodes";
 
-/** Poncho call-to-action — links to the research/write/format workspace. */
+export const dynamic = "force-dynamic";
+
 function PonchoBanner() {
   return (
     <Link
       href="/poncho"
       className="group mt-14 flex items-center gap-4 rounded-2xl border border-accent-dim/40 bg-accent/[0.05] px-5 py-4 transition-colors hover:border-accent-dim hover:bg-accent/[0.08]"
     >
-      <Image
-        src="/poncho-mark.svg"
-        alt=""
-        width={40}
-        height={42}
-        className="shrink-0"
-      />
+      <Image src="/poncho-mark.svg" alt="" width={40} height={42} className="shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="font-serif text-lg text-text">Ask Poncho</p>
         <p className="mt-0.5 text-sm text-muted">
@@ -42,16 +39,10 @@ function PonchoBanner() {
   );
 }
 
-/** Latest of updated/created, used for recency sorting. */
-function entryDate(e: VaultEntry): string {
-  return e.updated || e.created || "";
-}
-
-/** Format an ISO-ish date string for compact display; falls back gracefully. */
-function formatDate(value: string): string {
+function fmt(value: Date | string | null): string {
   if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -59,11 +50,17 @@ function formatDate(value: string): string {
   });
 }
 
-export default function HomePage() {
-  const categories = getCategories();
-  const entries = getAllEntries();
+export default async function HomePage() {
+  const ownerId = await getCurrentUserId();
+  if (!ownerId) return null;
 
-  if (entries.length === 0) {
+  const [stats, recent, tops] = await Promise.all([
+    nodeStats(ownerId),
+    recentNodes(ownerId, 6),
+    listChildren(ownerId, null),
+  ]);
+
+  if (stats.total === 0) {
     return (
       <AppShell title="Vault">
         <header className="mb-8">
@@ -78,32 +75,25 @@ export default function HomePage() {
     );
   }
 
-  // --- At-a-glance stats -----------------------------------------------------
-  const total = entries.length;
-  const tagSet = new Set<string>();
-  let published = 0;
-  for (const e of entries) {
-    for (const t of e.tags) tagSet.add(t.toLowerCase());
-    if (e.status?.toLowerCase() === "published") published += 1;
-  }
-  const drafts = total - published;
-
-  const sortedByRecency = [...entries].sort((a, b) =>
-    entryDate(b).localeCompare(entryDate(a))
+  const topCards: NodeCard[] = await Promise.all(
+    tops.map(async (t) => ({
+      slug: t.slug,
+      title: t.title,
+      kind: t.kind as "folder" | "entry",
+      count: t.kind === "folder" ? await childCount(ownerId, t.id) : undefined,
+      status: t.status,
+    }))
   );
-  const mostRecentDate = entryDate(sortedByRecency[0]);
-  const recent = sortedByRecency.slice(0, 6);
 
-  // --- Per-category counts (preserve sorted category order) ------------------
-  const categoryStats = categories.map((name) => {
-    const inCat = entries.filter((e) => e.category === name);
-    return {
-      name,
-      count: inCat.length,
-      published: inCat.filter((e) => e.status?.toLowerCase() === "published")
-        .length,
-    };
-  });
+  const recentItems = await Promise.all(
+    recent.map(async (r) => ({
+      title: r.title,
+      updated: fmt(r.updatedAt),
+      href:
+        "/vault/" +
+        (await slugPathFor(ownerId, r)).map(encodeURIComponent).join("/"),
+    }))
+  );
 
   return (
     <AppShell title="Vault">
@@ -114,67 +104,53 @@ export default function HomePage() {
         </p>
       </header>
 
-      {/* At-a-glance stat tiles */}
       <section aria-label="Vault overview" className="mb-12">
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <StatTile label="Entries" value={total} hint="total records" />
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatTile label="Entries" value={stats.entries} hint="records" />
+          <StatTile label="Folders" value={stats.folders} hint="sections" />
           <StatTile
-            label="Categories"
-            value={categories.length}
-            hint={categories.length === 1 ? "collection" : "collections"}
-          />
-          <StatTile label="Tags" value={tagSet.size} hint="distinct" />
-          <StatTile
-            label="Status"
+            label="Published"
             value={
               <span className="flex items-baseline gap-1">
-                {published}
+                {stats.published}
                 <span className="font-mono text-base text-faint">
-                  / {total}
+                  / {stats.entries}
                 </span>
               </span>
             }
-            hint={`${drafts} draft${drafts === 1 ? "" : "s"}`}
+            hint={`${stats.entries - stats.published} drafts`}
           />
-          <StatTile
-            label="Last updated"
-            value={
-              <span className="font-serif text-xl leading-tight">
-                {formatDate(mostRecentDate)}
-              </span>
-            }
-            hint="most recent"
-          />
+          <StatTile label="Total nodes" value={stats.total} hint="all" />
         </dl>
       </section>
 
-      {/* Recently updated */}
-      <section className="mb-12">
-        <SectionHeading
-          title="Recently updated"
-          count={recent.length}
-          action={{ href: "/vault", label: "All entries" }}
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {recent.map((entry) => (
-            <EntryCard key={`${entry.category}/${entry.slug}`} entry={entry} />
-          ))}
-        </div>
-      </section>
+      {recentItems.length > 0 && (
+        <section className="mb-12">
+          <SectionHeading
+            title="Recently updated"
+            count={recentItems.length}
+            action={{ href: "/vault", label: "Open vault" }}
+          />
+          <div className="grid gap-2">
+            {recentItems.map((e) => (
+              <Link
+                key={e.href}
+                href={e.href}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-accent-dim hover:bg-accent/[0.03]"
+              >
+                <span className="truncate font-serif text-text">{e.title}</span>
+                <span className="shrink-0 font-mono text-[0.6875rem] text-faint">
+                  {e.updated}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* Browse by category */}
       <section>
-        <SectionHeading title="Browse by category" count={categories.length} />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {categoryStats.map((cat) => (
-            <CategoryCard
-              key={cat.name}
-              name={cat.name}
-              count={cat.count}
-              published={cat.published}
-            />
-          ))}
-        </div>
+        <SectionHeading title="Browse by section" count={topCards.length} />
+        <NodeGrid items={topCards} basePath="/vault" />
       </section>
 
       <PonchoBanner />

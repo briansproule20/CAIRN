@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { listRecordedChats } from "@/lib/chat-store";
+import { listChatsFor } from "@/lib/repo/chats";
+import { getCurrentUserId } from "@/lib/auth/current-user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Only the chats CAIRN created (from the server-side registry). */
+/** The signed-in owner's CAIRN-created chats. */
 export async function GET() {
-  return NextResponse.json(
-    { chats: listRecordedChats() },
-    { headers: { "Cache-Control": "no-store" } }
-  );
+  const ownerId = await getCurrentUserId();
+  const chats = ownerId ? await listChatsFor(ownerId) : [];
+  return NextResponse.json({ chats }, { headers: { "Cache-Control": "no-store" } });
 }

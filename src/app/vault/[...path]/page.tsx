@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import { serialize } from "next-mdx-remote/serialize";
 import { AppShell } from "@/components/app-shell";
 import { MDXContent } from "@/components/mdx-content";
-import { NodeGrid, type NodeCard } from "@/components/vault/node-grid";
+import { type NodeCard } from "@/components/vault/node-grid";
+import { NodeBrowser } from "@/components/vault/node-browser";
 import { CreateNode } from "@/components/vault/create-node";
+import { EntryEditor } from "@/components/vault/entry-editor";
+import { FolderActions } from "@/components/vault/folder-actions";
 import { getCurrentUserId } from "@/lib/auth/current-user";
 import {
   getNodeBySlugPath,
@@ -69,7 +72,19 @@ export default async function NodePathPage({
       <AppShell title={node.title} breadcrumb={breadcrumbEl}>
         <header className="mb-8 flex items-start justify-between gap-4">
           <h1 className="font-serif text-3xl text-text">{node.title}</h1>
-          <CreateNode parentId={node.id} />
+          <div className="flex shrink-0 items-center gap-2">
+            <CreateNode parentId={node.id} />
+            <FolderActions
+              id={node.id}
+              parentPath={
+                path.length > 1
+                  ? "/vault/" +
+                    path.slice(0, -1).map(encodeURIComponent).join("/")
+                  : "/vault"
+              }
+              title={node.title}
+            />
+          </div>
         </header>
         {overview && (
           <div className="prose-cairn mb-10 max-w-3xl">
@@ -82,7 +97,7 @@ export default async function NodePathPage({
             a folder or entry.
           </p>
         ) : (
-          <NodeGrid items={items} basePath={basePath} />
+          <NodeBrowser items={items} basePath={basePath} />
         )}
       </AppShell>
     );
@@ -91,17 +106,26 @@ export default async function NodePathPage({
   // entry
   const backlinks = await getBacklinks(ownerId, node.id);
   const source = await serialize(node.content || "").catch(() => null);
+  const parentPath =
+    path.length > 1
+      ? "/vault/" + path.slice(0, -1).map(encodeURIComponent).join("/")
+      : "/vault";
 
   return (
     <AppShell title={node.title} breadcrumb={breadcrumbEl}>
-      <article className="max-w-3xl">
-        <header className="mb-8">
-          <h1 className="font-serif text-3xl text-text">{node.title}</h1>
-          <p className="mt-1 font-mono text-xs text-faint">
+      <EntryEditor
+        id={node.id}
+        parentPath={parentPath}
+        title={node.title}
+        content={node.content || ""}
+        tags={node.tags ?? []}
+        status={node.status}
+        meta={
+          <>
             {node.status} · updated {String(node.updatedAt).slice(0, 10)}
-          </p>
-        </header>
-
+          </>
+        }
+      >
         {node.content?.trim() ? (
           source ? (
             <div className="prose-cairn">
@@ -132,7 +156,7 @@ export default async function NodePathPage({
             </ul>
           </section>
         )}
-      </article>
+      </EntryEditor>
     </AppShell>
   );
 }

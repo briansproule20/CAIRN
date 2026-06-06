@@ -63,6 +63,10 @@ export const nodes = pgTable(
       .$type<Record<string, unknown>>()
       .notNull()
       .default({}),
+    tags: text("tags")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     status: text("status").notNull().default("draft"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -124,9 +128,32 @@ export const invites = pgTable("invites", {
     .defaultNow(),
 });
 
+/** chats — CAIRN-created Poncho conversations, per owner (replaces the file). */
+export const chats = pgTable(
+  "chats",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    ponchoChatId: text("poncho_chat_id").notNull(),
+    title: text("title").notNull(),
+    mode: text("mode"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("chats_owner_created_idx").on(t.ownerId, t.createdAt),
+    unique("chats_owner_poncho_uq").on(t.ownerId, t.ponchoChatId),
+  ]
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Node = typeof nodes.$inferSelect;
 export type NewNode = typeof nodes.$inferInsert;
 export type Link = typeof links.$inferSelect;
 export type NewLink = typeof links.$inferInsert;
+export type Chat = typeof chats.$inferSelect;
+export type NewChat = typeof chats.$inferInsert;

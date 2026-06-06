@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth/current-user";
-import { createNode } from "@/lib/repo/nodes";
+import { createNode, slugPathFor } from "@/lib/repo/nodes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,12 +28,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const node = await createNode(ownerId, { parentId, kind, title, content });
+    const path = await slugPathFor(ownerId, node);
     return NextResponse.json({
       node: {
         id: node.id,
         slug: node.slug,
         kind: node.kind,
         title: node.title,
+        path,
       },
     });
   } catch (e) {

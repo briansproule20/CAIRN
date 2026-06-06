@@ -1,4 +1,15 @@
-import { and, asc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { nodes, links, type Node } from "@/lib/db/schema";
 
@@ -111,6 +122,7 @@ export async function createNode(
     slug?: string;
     content?: string;
     status?: string;
+    tags?: string[];
   }
 ): Promise<Node> {
   const db = getDb();
@@ -141,6 +153,7 @@ export async function createNode(
       path,
       depth: path.length,
       content: input.content ?? "",
+      tags: input.tags ?? [],
       status: input.status ?? "draft",
     })
     .returning();
@@ -150,7 +163,12 @@ export async function createNode(
 export async function updateNode(
   ownerId: string,
   id: string,
-  patch: { title?: string; content?: string; status?: string }
+  patch: {
+    title?: string;
+    content?: string;
+    status?: string;
+    tags?: string[];
+  }
 ): Promise<Node | null> {
   const db = getDb();
   const [node] = await db
@@ -192,4 +210,128 @@ export async function getBacklinks(
     .from(links)
     .innerJoin(nodes, eq(links.sourceId, nodes.id))
     .where(and(eq(links.ownerId, ownerId), eq(links.targetId, nodeId)));
+}
+
+// --- search / tree / tags / dashboard --------------------------------------
+
+export async function searchNodes(
+  ownerId: string,
+  q: string,
+  limit = 24
+): Promise<Node[]> {
+  const db = getDb();
+  const like = `%${q}%`;
+  return db
+    .select()
+    .from(nodes)
+    .where(
+      and(
+        eq(nodes.ownerId, ownerId),
+        or(ilike(nodes.title, like), ilike(nodes.content, like))
+      )
+    )
+    .orderBy(...childOrder)
+    .limit(limit);
+}
+
+export interface TreeNode {
+  id: string;
+  parentId: string | null;
+  slug: string;
+  title: string;
+  kind: "folder" | "entry";
+}
+
+/** Flat list of all of the owner's nodes — the client builds the tree. */
+export async function getTree(ownerId: string): Promise<TreeNode[]> {
+  const db = getDb();
+  return db
+    .select({
+      id: nodes.id,
+      parentId: nodes.parentId,
+      slug: nodes.slug,
+      title: nodes.title,
+      kind: nodes.kind,
+    })
+    .from(nodes)
+    .where(eq(nodes.ownerId, ownerId))
+    .orderBy(...childOrder);
+}
+
+/** Resolve a node's full slug path (ancestors → self) for building /vault URLs. */
+export async function slugPathFor(
+  ownerId: string,
+  node: { slug: string; path: string[] }
+): Promise<string[]> {
+  if (!node.path.length) return [node.slug];
+  const db = getDb();
+  const rows = await db
+    .select({ id: nodes.id, slug: nodes.slug })
+    .from(nodes)
+    .where(and(eq(nodes.ownerId, ownerId), inArray(nodes.id, node.path)));
+  const byId = new Map(rows.map((r) => [r.id, r.slug]));
+  const ancestors = node.path
+    .map((id) => byId.get(id))
+    .filter((s): s is string => !!s);
+  return [...ancestors, node.slug];
+}
+
+export async function getAllTags(
+  ownerId: string
+): Promise<{ tag: string; count: number }[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ tags: nodes.tags })
+    .from(nodes)
+    .where(eq(nodes.ownerId, ownerId));
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    for (const t of r.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+}
+
+export async function getNodesByTag(
+  ownerId: string,
+  tag: string
+): Promise<Node[]> {
+  const db = getDb();
+  return db
+    .select()
+    .from(nodes)
+    .where(and(eq(nodes.ownerId, ownerId), sql`${tag} = any(${nodes.tags})`))
+    .orderBy(desc(nodes.updatedAt));
+}
+
+export async function recentNodes(ownerId: string, limit = 8): Promise<Node[]> {
+  const db = getDb();
+  return db
+    .select()
+    .from(nodes)
+    .where(and(eq(nodes.ownerId, ownerId), eq(nodes.kind, "entry")))
+    .orderBy(desc(nodes.updatedAt))
+    .limit(limit);
+}
+
+export interface NodeStats {
+  total: number;
+  folders: number;
+  entries: number;
+  published: number;
+}
+
+export async function nodeStats(ownerId: string): Promise<NodeStats> {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      folders: sql<number>`count(*) filter (where ${nodes.kind} = 'folder')::int`,
+      entries: sql<number>`count(*) filter (where ${nodes.kind} = 'entry')::int`,
+      published: sql<number>`count(*) filter (where ${nodes.status} = 'published')::int`,
+    })
+    .from(nodes)
+    .where(eq(nodes.ownerId, ownerId));
+  return row ?? { total: 0, folders: 0, entries: 0, published: 0 };
 }

@@ -5,15 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Settings, ChevronDown, Home } from "lucide-react";
-
-export interface SidebarCategory {
-  /** raw folder name, e.g. "head-canon" */
-  name: string;
-  /** display label, e.g. "head canon" */
-  label: string;
-  /** number of entries in the category */
-  count: number;
-}
+import { SidebarTree } from "@/components/sidebar-tree";
+import type { TreeNode } from "@/lib/repo/nodes";
 
 interface ChatSummary {
   id: string;
@@ -28,7 +21,7 @@ interface ChatSummary {
  *   Chats  → live Poncho conversations, polled from /api/poncho/chats
  * Plus a "+ New Entry" / "+ New Chat" action row.
  */
-export function SidebarNav({ categories }: { categories: SidebarCategory[] }) {
+export function SidebarNav({ tree }: { tree: TreeNode[] }) {
   const pathname = usePathname() ?? "";
 
   return (
@@ -43,47 +36,7 @@ export function SidebarNav({ categories }: { categories: SidebarCategory[] }) {
           >
             Home
           </NavRow>
-          {categories.length > 0 && (
-            <ul className="space-y-0.5">
-              {categories.map((cat) => {
-                const active =
-                  pathname === `/vault/${cat.name}` ||
-                  pathname.startsWith(`/vault/${cat.name}/`);
-                return (
-                  <li key={cat.name}>
-                    <Link
-                      href={`/vault/${cat.name}`}
-                      aria-current={active ? "page" : undefined}
-                      className={`group flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm capitalize transition-colors ${
-                        active
-                          ? "bg-accent/10 text-accent-soft"
-                          : "text-muted hover:bg-surface-2 hover:text-text"
-                      }`}
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span
-                          aria-hidden
-                          className={`h-3.5 w-px shrink-0 rounded transition-colors ${
-                            active
-                              ? "bg-accent"
-                              : "bg-border-strong group-hover:bg-accent-dim"
-                          }`}
-                        />
-                        <span className="truncate">{cat.label}</span>
-                      </span>
-                      <span
-                        className={`shrink-0 font-mono text-[0.6875rem] tabular-nums ${
-                          active ? "text-accent-dim" : "text-faint"
-                        }`}
-                      >
-                        {cat.count}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <SidebarTree nodes={tree} />
         </Group>
 
         {/* Tools */}

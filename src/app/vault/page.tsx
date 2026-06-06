@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
-import { NodeGrid, type NodeCard } from "@/components/vault/node-grid";
+import { type NodeCard } from "@/components/vault/node-grid";
+import { NodeBrowser } from "@/components/vault/node-browser";
 import { CreateNode } from "@/components/vault/create-node";
 import { getCurrentUserId } from "@/lib/auth/current-user";
 import { listChildren, childCount } from "@/lib/repo/nodes";
@@ -46,7 +47,7 @@ export default async function VaultPage() {
           </p>
         </div>
       ) : (
-        <NodeGrid items={items} basePath="/vault" />
+        <NodeBrowser items={items} basePath="/vault" />
       )}
     </AppShell>
   );

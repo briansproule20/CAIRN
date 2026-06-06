@@ -1,36 +1,27 @@
 import Link from "next/link";
-import { SidebarNav, type SidebarCategory } from "@/components/sidebar-nav";
+import { SidebarNav } from "@/components/sidebar-nav";
 import { CairnMark } from "@/components/cairn-mark";
 import { getCurrentUserId } from "@/lib/auth/current-user";
-import { listChildren, childCount } from "@/lib/repo/nodes";
+import { getTree, type TreeNode } from "@/lib/repo/nodes";
 
 /**
- * Sidebar — server component. Persistent left rail with the CAIRN wordmark,
- * category navigation (with per-category counts + active state), a Tags link,
- * and a "+ New Entry" action.
- *
- * Data is read server-side here; active-state highlighting lives in the
- * client subcomponent <SidebarNav>. Rendered by <AppShell>.
+ * Sidebar — server component. Persistent left rail with the CAIRN wordmark and
+ * navigation. Reads the owner's flat node tree server-side and hands it to the
+ * client <SidebarNav>, which renders a nested file-tree for the Vault group.
+ * Rendered by <AppShell>.
  *
  *   import { Sidebar } from "@/components/sidebar";
  *   <Sidebar />
  */
 export async function Sidebar() {
-  let categories: SidebarCategory[] = [];
+  let tree: TreeNode[] = [];
   try {
     const ownerId = await getCurrentUserId();
     if (ownerId) {
-      const tops = await listChildren(ownerId, null);
-      categories = await Promise.all(
-        tops.map(async (t) => ({
-          name: t.slug,
-          label: t.title,
-          count: t.kind === "folder" ? await childCount(ownerId, t.id) : 0,
-        }))
-      );
+      tree = await getTree(ownerId);
     }
   } catch {
-    categories = [];
+    tree = [];
   }
 
   return (
@@ -49,7 +40,7 @@ export async function Sidebar() {
         </Link>
       </div>
 
-      <SidebarNav categories={categories} />
+      <SidebarNav tree={tree} />
     </div>
   );
 }

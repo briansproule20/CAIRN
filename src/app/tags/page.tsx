@@ -1,21 +1,21 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import { getAllTags } from "@/lib/vault";
+import { getCurrentUserId } from "@/lib/auth/current-user";
+import { getAllTags } from "@/lib/repo/nodes";
 
-export const metadata = {
-  title: "Tags",
-};
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Tags · CAIRN" };
 
-export default function TagsPage() {
-  const tags = getAllTags();
+export default async function TagsPage() {
+  const ownerId = await getCurrentUserId();
+  const tags = ownerId ? await getAllTags(ownerId) : [];
   const max = tags.reduce((m, t) => Math.max(m, t.count), 1);
 
-  // Map a tag's count onto a small, restrained type-size range for the cloud.
   function sizeClass(count: number): string {
-    const ratio = count / max;
-    if (ratio > 0.75) return "text-2xl";
-    if (ratio > 0.5) return "text-xl";
-    if (ratio > 0.25) return "text-lg";
+    const r = count / max;
+    if (r > 0.75) return "text-2xl";
+    if (r > 0.5) return "text-xl";
+    if (r > 0.25) return "text-lg";
     return "text-base";
   }
 
@@ -39,8 +39,7 @@ export default function TagsPage() {
         <div className="rounded-xl border border-border bg-surface p-8 text-center">
           <p className="text-sm text-muted">No tags yet.</p>
           <p className="mt-1 text-xs text-faint">
-            Add a <code className="font-mono">tags</code> list to an entry&apos;s
-            frontmatter to see it here.
+            Add tags to an entry to see them here.
           </p>
         </div>
       ) : (

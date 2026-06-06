@@ -2,19 +2,30 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FolderPlus, FileText, Plus, X } from "lucide-react";
+import { FolderPlus, FilePlus, Plus, X } from "lucide-react";
+
+type Kind = "folder" | "entry";
 
 /** Inline "new folder / new entry" control for the current location. */
 export function CreateNode({ parentId }: { parentId: string | null }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<"folder" | "entry">("folder");
+  const [kind, setKind] = useState<Kind | null>(null);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  function open(k: Kind) {
+    setKind(k);
+    setTitle("");
+    setError("");
+  }
+  function close() {
+    setKind(null);
+    setError("");
+  }
+
   async function create() {
-    if (!title.trim() || busy) return;
+    if (!title.trim() || busy || !kind) return;
     setBusy(true);
     setError("");
     try {
@@ -25,8 +36,7 @@ export function CreateNode({ parentId }: { parentId: string | null }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Couldn't create that.");
-      setTitle("");
-      setOpen(false);
+      close();
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't create that.");
@@ -35,43 +45,41 @@ export function CreateNode({ parentId }: { parentId: string | null }) {
     }
   }
 
-  if (!open) {
+  if (!kind) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-accent-dim hover:bg-accent/10 hover:text-accent-soft"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        New
-      </button>
+      <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 p-0.5">
+        <span className="flex items-center gap-1 pl-2 pr-0.5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faint">
+          <Plus className="h-3 w-3" />
+          New
+        </span>
+        <button
+          type="button"
+          onClick={() => open("folder")}
+          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-accent/10 hover:text-accent-soft"
+        >
+          <FolderPlus className="h-3.5 w-3.5" />
+          Folder
+        </button>
+        <button
+          type="button"
+          onClick={() => open("entry")}
+          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-accent/10 hover:text-accent-soft"
+        >
+          <FilePlus className="h-3.5 w-3.5" />
+          Entry
+        </button>
+      </div>
     );
   }
 
+  const Icon = kind === "folder" ? FolderPlus : FilePlus;
+
   return (
     <div className="w-full max-w-md rounded-xl border border-border bg-surface p-3">
-      <div className="mb-2 inline-flex rounded-lg border border-border bg-surface-2 p-0.5">
-        {(["folder", "entry"] as const).map((k) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setKind(k)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
-              kind === k
-                ? "bg-accent/15 text-accent-soft"
-                : "text-muted hover:text-text"
-            }`}
-          >
-            {k === "folder" ? (
-              <FolderPlus className="h-3.5 w-3.5" />
-            ) : (
-              <FileText className="h-3.5 w-3.5" />
-            )}
-            {k}
-          </button>
-        ))}
+      <div className="mb-2 flex items-center gap-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-accent-dim">
+        <Icon className="h-3.5 w-3.5" />
+        New {kind}
       </div>
-
       <div className="flex items-center gap-2">
         <input
           value={title}
@@ -81,7 +89,7 @@ export function CreateNode({ parentId }: { parentId: string | null }) {
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") create();
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === "Escape") close();
           }}
           autoFocus
           placeholder={kind === "folder" ? "Folder name" : "Entry title"}
@@ -98,7 +106,7 @@ export function CreateNode({ parentId }: { parentId: string | null }) {
         </button>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={close}
           aria-label="Cancel"
           className="rounded-lg p-2 text-muted transition-colors hover:text-text"
         >

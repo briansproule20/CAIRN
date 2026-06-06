@@ -28,11 +28,9 @@ export const SEARCH_OPEN_EVENT = "cairn:open-search" as const;
 
 /** Shape returned by GET /api/search. */
 interface SearchResult {
-  slug: string;
-  category: string;
   title: string;
-  tags: string[];
-  status: string;
+  kind: "folder" | "entry";
+  href: string;
   snippet: string;
   matchedTitle: boolean;
 }
@@ -44,11 +42,6 @@ interface SearchResponse {
 }
 
 const DEBOUNCE_MS = 160;
-
-/** Format a category slug ("head-canon") into a readable label ("head canon"). */
-function categoryLabel(category: string): string {
-  return category.replace(/-/g, " ");
-}
 
 /**
  * Highlight occurrences of `query` within `text` using the accent color.
@@ -199,17 +192,12 @@ export function CommandPalette() {
     return () => controller.abort();
   }, [debounced, open]);
 
-  const href = useCallback(
-    (r: SearchResult) => `/vault/${r.category}/${r.slug}`,
-    []
-  );
-
   const go = useCallback(
     (r: SearchResult) => {
-      router.push(href(r));
+      router.push(r.href);
       close();
     },
-    [router, href, close]
+    [router, close]
   );
 
   // Keep the active row scrolled into view.
@@ -377,13 +365,13 @@ export function CommandPalette() {
               {results.map((r, i) => {
                 const isActive = i === active;
                 return (
-                  <li key={`${r.category}/${r.slug}`} role="presentation">
+                  <li key={r.href} role="presentation">
                     <Link
                       id={`${listboxId}-opt-${i}`}
                       data-index={i}
                       role="option"
                       aria-selected={isActive}
-                      href={href(r)}
+                      href={r.href}
                       onClick={close}
                       onMouseMove={() => setActive(i)}
                       tabIndex={-1}
@@ -397,8 +385,8 @@ export function CommandPalette() {
                         <span className="min-w-0 flex-1 truncate font-serif text-[0.95rem] text-text">
                           {highlight(r.title, debounced)}
                         </span>
-                        <Badge variant="status" className="shrink-0">
-                          {r.status}
+                        <Badge variant="neutral" className="shrink-0">
+                          {r.kind}
                         </Badge>
                       </div>
 
@@ -407,20 +395,6 @@ export function CommandPalette() {
                           {highlight(r.snippet, debounced)}
                         </p>
                       )}
-
-                      <div className="mt-1.5 flex items-center gap-2 font-mono text-[0.6875rem] text-faint">
-                        <span className="lowercase tracking-tight text-accent-dim">
-                          {categoryLabel(r.category)}
-                        </span>
-                        {r.tags.length > 0 && (
-                          <>
-                            <span aria-hidden>·</span>
-                            <span className="min-w-0 truncate">
-                              {r.tags.slice(0, 3).join(" · ")}
-                            </span>
-                          </>
-                        )}
-                      </div>
                     </Link>
                   </li>
                 );
