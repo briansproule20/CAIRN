@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-const COUNT = 30;
+const COUNT = 29;
 const PHOTOS = Array.from({ length: COUNT }, (_, i) => {
   const n = String(i + 1).padStart(2, "0");
   return { n, src: `/cairn-photos/cairn-${n}.jpeg` };

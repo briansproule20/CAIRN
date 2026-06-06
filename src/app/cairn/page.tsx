@@ -11,15 +11,11 @@ import { PhotoGallery } from "@/components/cairn-homage/photo-gallery";
  * an animated hand-stacked cairn, then a curated exhibit of the photographs.
  */
 
+// No openGraph override here — inherit the site's designed OG card from the
+// root layout (a custom openGraph block was suppressing the inherited image).
 export const metadata: Metadata = {
   title: "Cairn · Penn's Woods",
   description: "Stones, stacked by hand — somewhere in Penn's Woods.",
-  openGraph: {
-    title: "Cairn",
-    description: "Stones, stacked by hand — somewhere in Penn's Woods.",
-    type: "website",
-  },
-  twitter: { card: "summary_large_image" },
 };
 
 export default function CairnHomagePage() {
@@ -47,11 +43,6 @@ export default function CairnHomagePage() {
       {/* ---------------------------------------------------------------- Hero */}
       <section className="relative mx-auto flex min-h-[88vh] max-w-3xl flex-col items-center justify-center px-6 pb-16 pt-24">
         <CairnStack className="mb-10 h-56 w-56 sm:h-72 sm:w-72" />
-
-        {/* Quiet scroll hint */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.3em] text-faint">
-          The cairns ↓
-        </div>
       </section>
 
       {/* ------------------------------------------------------------- Gallery */}

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { getCategories, getEntriesByCategory } from "@/lib/vault";
 import { SidebarNav, type SidebarCategory } from "@/components/sidebar-nav";
 import { CairnMark } from "@/components/cairn-mark";
+import { getCurrentUserId } from "@/lib/auth/current-user";
+import { listChildren, childCount } from "@/lib/repo/nodes";
 
 /**
  * Sidebar — server component. Persistent left rail with the CAIRN wordmark,
@@ -14,12 +15,23 @@ import { CairnMark } from "@/components/cairn-mark";
  *   import { Sidebar } from "@/components/sidebar";
  *   <Sidebar />
  */
-export function Sidebar() {
-  const categories: SidebarCategory[] = getCategories().map((name) => ({
-    name,
-    label: name.replace(/-/g, " "),
-    count: getEntriesByCategory(name).length,
-  }));
+export async function Sidebar() {
+  let categories: SidebarCategory[] = [];
+  try {
+    const ownerId = await getCurrentUserId();
+    if (ownerId) {
+      const tops = await listChildren(ownerId, null);
+      categories = await Promise.all(
+        tops.map(async (t) => ({
+          name: t.slug,
+          label: t.title,
+          count: t.kind === "folder" ? await childCount(ownerId, t.id) : 0,
+        }))
+      );
+    }
+  } catch {
+    categories = [];
+  }
 
   return (
     <div className="flex h-full flex-col">
