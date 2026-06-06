@@ -1,8 +1,21 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Sparkles, Trash2, X } from "lucide-react";
+import {
+  Pencil,
+  Sparkles,
+  Trash2,
+  X,
+  Type,
+  Bold,
+  Italic,
+  Heading2,
+  List,
+  Quote,
+  Code,
+  Link2,
+} from "lucide-react";
 
 /**
  * EntryEditor — wraps an entry's read view and provides in-app editing.
@@ -44,6 +57,52 @@ export function EntryEditor({
   const [formatting, setFormatting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  const [showMd, setShowMd] = useState(false);
+
+  // Insert markdown around the selection (or a placeholder) at the cursor.
+  function applyMarkdown(kind: string) {
+    const ta = taRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const sel = content.slice(start, end);
+    const put = (before: string, after: string, ph: string) => {
+      const text = sel || ph;
+      setContent(content.slice(0, start) + before + text + after + content.slice(end));
+      requestAnimationFrame(() => {
+        ta.focus();
+        ta.setSelectionRange(start + before.length, start + before.length + text.length);
+      });
+    };
+    switch (kind) {
+      case "bold":
+        return put("**", "**", "bold");
+      case "italic":
+        return put("*", "*", "italic");
+      case "code":
+        return put("`", "`", "code");
+      case "link":
+        return put("[", "](url)", "text");
+      case "h2":
+        return put("## ", "", "Heading");
+      case "list":
+        return put("- ", "", "item");
+      case "quote":
+        return put("> ", "", "quote");
+    }
+  }
+
+  const MD_TOOLS = [
+    { k: "h2", label: "Heading", Icon: Heading2 },
+    { k: "bold", label: "Bold", Icon: Bold },
+    { k: "italic", label: "Italic", Icon: Italic },
+    { k: "list", label: "List", Icon: List },
+    { k: "quote", label: "Quote", Icon: Quote },
+    { k: "code", label: "Code", Icon: Code },
+    { k: "link", label: "Link", Icon: Link2 },
+  ] as const;
 
   function startEditing() {
     setTitle(initialTitle);
@@ -167,17 +226,43 @@ export function EntryEditor({
         </button>
       </div>
 
-      <label className="mb-1.5 block font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
-        Content (markdown)
-      </label>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <label className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+          Content
+        </label>
+        <button
+          type="button"
+          onClick={() => setShowMd((v) => !v)}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faint transition-colors hover:text-accent-soft"
+        >
+          <Type className="h-3 w-3" />
+          {showMd ? "Done" : "Add markdown"}
+        </button>
+      </div>
+      {showMd && (
+        <div className="mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-surface-2 p-1">
+          {MD_TOOLS.map(({ k, label, Icon }) => (
+            <button
+              key={k}
+              type="button"
+              title={label}
+              aria-label={label}
+              onClick={() => applyMarkdown(k)}
+              className="rounded-md p-1.5 text-muted transition-colors hover:bg-accent/10 hover:text-accent-soft"
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          ))}
+        </div>
+      )}
       <textarea
+        ref={taRef}
         value={content}
         onChange={(e) => setContent(e.target.value)}
         rows={20}
-        spellCheck={false}
         disabled={busy}
-        placeholder="Write in markdown…"
-        className="mb-4 block w-full resize-y rounded-xl border border-border bg-surface px-4 py-3 font-mono text-[0.8125rem] leading-relaxed text-text outline-none transition-colors placeholder:text-faint hover:border-border-strong focus-visible:border-accent-dim focus-visible:ring-2 focus-visible:ring-accent/40"
+        placeholder="Write here — just plain text. Use “Add markdown” for headings, lists, links…"
+        className="mb-4 block w-full resize-y rounded-xl border border-border bg-surface px-4 py-3 text-sm leading-relaxed text-text outline-none transition-colors placeholder:text-faint hover:border-border-strong focus-visible:border-accent-dim focus-visible:ring-2 focus-visible:ring-accent/40"
       />
 
       <div className="mb-4 grid gap-4 sm:grid-cols-2">

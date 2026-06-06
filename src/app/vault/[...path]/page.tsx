@@ -14,7 +14,6 @@ import {
   listChildren,
   childCount,
   breadcrumb,
-  getBacklinks,
 } from "@/lib/repo/nodes";
 
 export const dynamic = "force-dynamic";
@@ -104,7 +103,6 @@ export default async function NodePathPage({
   }
 
   // entry
-  const backlinks = await getBacklinks(ownerId, node.id);
   const source = await serialize(node.content || "").catch(() => null);
   const parentPath =
     path.length > 1
@@ -140,21 +138,6 @@ export default async function NodePathPage({
           <p className="text-sm text-muted">
             This entry is empty. Edit it to add content.
           </p>
-        )}
-
-        {backlinks.length > 0 && (
-          <section className="mt-12 border-t border-border pt-6">
-            <h2 className="mb-3 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
-              Referenced by
-            </h2>
-            <ul className="space-y-1">
-              {backlinks.map((b) => (
-                <li key={b.id} className="text-sm text-accent-soft">
-                  {b.title}
-                </li>
-              ))}
-            </ul>
-          </section>
         )}
       </EntryEditor>
     </AppShell>
