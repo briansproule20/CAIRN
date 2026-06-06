@@ -8,7 +8,7 @@ import { PhotoGallery } from "@/components/cairn-homage/photo-gallery";
  *
  * Not linked from the nav: discovered, not advertised. A full-bleed,
  * standalone page (no AppShell chrome) so the homage breathes on its own —
- * an animated hand-stacked cairn, then a curated exhibit of 25 photographs.
+ * an animated hand-stacked cairn, then a curated exhibit of the photographs.
  */
 
 export const metadata: Metadata = {
@@ -58,7 +58,7 @@ export default function CairnHomagePage() {
       <section className="relative mx-auto max-w-6xl px-6 pb-32">
         <header className="mx-auto mb-12 max-w-2xl border-t border-border pt-10 text-center">
           <span className="font-mono text-[11px] uppercase tracking-[0.34em] text-accent-dim">
-            Field record · 25 plates
+            Field record
           </span>
         </header>
 
