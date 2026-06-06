@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { SectionHeading } from "@/components/dashboard/section-heading";
 import { EmptyVault } from "@/components/dashboard/empty-vault";
 import { NodeGrid, type NodeCard } from "@/components/vault/node-grid";
+import { CreateNode } from "@/components/vault/create-node";
 import { getCurrentUserId } from "@/lib/auth/current-user";
 import { recentNodes, listChildren, childCount, slugPathFor } from "@/lib/repo/nodes";
 
@@ -91,7 +92,13 @@ export default async function HomePage() {
       </header>
 
       <section>
-        <SectionHeading title="Your sections" count={categories.length} />
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+            Your sections{" "}
+            <span className="text-faint/60">({categories.length})</span>
+          </h2>
+          <CreateNode parentId={null} defaultKind="folder" label="New section" />
+        </div>
         <NodeGrid items={categories} basePath="/vault" />
       </section>
 

@@ -16,6 +16,11 @@ import {
   Code,
   Link2,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /**
  * EntryEditor — wraps an entry's read view and provides in-app editing.
@@ -242,16 +247,19 @@ export function EntryEditor({
       {showMd && (
         <div className="mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-surface-2 p-1">
           {MD_TOOLS.map(({ k, label, Icon }) => (
-            <button
-              key={k}
-              type="button"
-              title={label}
-              aria-label={label}
-              onClick={() => applyMarkdown(k)}
-              className="rounded-md p-1.5 text-muted transition-colors hover:bg-accent/10 hover:text-accent-soft"
-            >
-              <Icon className="h-3.5 w-3.5" />
-            </button>
+            <Tooltip key={k}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={label}
+                  onClick={() => applyMarkdown(k)}
+                  className="rounded-md p-1.5 text-muted transition-colors hover:bg-accent/10 hover:text-accent-soft"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">{label}</TooltipContent>
+            </Tooltip>
           ))}
         </div>
       )}

@@ -1,89 +1,151 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Check,
+  ChevronRight,
+  Folder,
+  FolderPlus,
+  FilePlus,
+  Sparkles,
+  Type,
+  Bold,
+  Italic,
+  Heading2,
+  List,
+  Quote,
+  Code,
+  Link2,
+} from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-const DRAFT_KEY = "cairn_draft";
-
-function today() {
-  return new Date().toISOString().split("T")[0];
+interface TreeNode {
+  id: string;
+  parentId: string | null;
+  slug: string;
+  title: string;
+  kind: "folder" | "entry";
 }
 
-function makeTemplate() {
-  const d = today();
-  return `---
-title: Untitled
-category:
-tags: []
-status: draft
-created: ${d}
-updated: ${d}
----
+type Kind = "folder" | "entry";
 
-Start writing your entry here.
-
-## Section
-
-Use Markdown / MDX for headings, lists, and code. Frontmatter above is
-parsed by the vault — set \`category\` and \`status: published\` when ready.
-`;
+/** Depth-first folder list (children directly under their parent) for the picker. */
+function orderedFolders(tree: TreeNode[]): { node: TreeNode; depth: number }[] {
+  const byParent = new Map<string | null, TreeNode[]>();
+  for (const n of tree) {
+    const key = n.parentId ?? null;
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key)!.push(n);
+  }
+  const out: { node: TreeNode; depth: number }[] = [];
+  const walk = (parentId: string | null, depth: number) => {
+    for (const c of byParent.get(parentId) ?? []) {
+      if (c.kind === "folder") {
+        out.push({ node: c, depth });
+        walk(c.id, depth + 1);
+      }
+    }
+  };
+  walk(null, 0);
+  return out;
 }
-
-type SaveState = "idle" | "dirty" | "saving" | "saved";
 
 export default function EditorPage() {
+  const router = useRouter();
+
+  const [kind, setKind] = useState<Kind>("entry");
+  const [title, setTitle] = useState("");
+  const [parentId, setParentId] = useState<string | null>(null);
   const [content, setContent] = useState("");
-  const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [restored, setRestored] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [tags, setTags] = useState("");
+  const [status, setStatus] = useState<"draft" | "published">("draft");
+
+  const [tree, setTree] = useState<TreeNode[] | null>(null);
+  const [busy, setBusy] = useState(false);
   const [formatting, setFormatting] = useState(false);
-  const [formatError, setFormatError] = useState("");
-  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [error, setError] = useState("");
+  const [showMd, setShowMd] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
-  // Hydrate from localStorage (or template) on mount — avoids SSR mismatch.
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Load the owner's folder tree once for the destination picker.
   useEffect(() => {
-    let initial = makeTemplate();
-    try {
-      const stored = window.localStorage.getItem(DRAFT_KEY);
-      if (stored && stored.trim().length > 0) {
-        initial = stored;
-        setRestored(true);
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/nodes/tree");
+        const data = await res.json();
+        if (alive) setTree(Array.isArray(data.tree) ? data.tree : []);
+      } catch {
+        if (alive) setTree([]);
       }
-    } catch {
-      /* localStorage unavailable — fall back to template */
-    }
-    setContent(initial);
-    setReady(true);
+    })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  const persist = useCallback((value: string) => {
-    setSaveState("saving");
-    try {
-      window.localStorage.setItem(DRAFT_KEY, value);
-      setSaveState("saved");
-    } catch {
-      setSaveState("dirty");
+  const folderList = orderedFolders(tree ?? []);
+
+  // Insert markdown around the selection (or a placeholder) at the cursor.
+  function applyMarkdown(k: string) {
+    const ta = taRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const sel = content.slice(start, end);
+    const put = (before: string, after: string, ph: string) => {
+      const text = sel || ph;
+      setContent(
+        content.slice(0, start) + before + text + after + content.slice(end)
+      );
+      requestAnimationFrame(() => {
+        ta.focus();
+        ta.setSelectionRange(
+          start + before.length,
+          start + before.length + text.length
+        );
+      });
+    };
+    switch (k) {
+      case "bold":
+        return put("**", "**", "bold");
+      case "italic":
+        return put("*", "*", "italic");
+      case "code":
+        return put("`", "`", "code");
+      case "link":
+        return put("[", "](url)", "text");
+      case "h2":
+        return put("## ", "", "Heading");
+      case "list":
+        return put("- ", "", "item");
+      case "quote":
+        return put("> ", "", "quote");
     }
-  }, []);
-
-  function handleChange(value: string) {
-    setContent(value);
-    setRestored(false);
-    setSaveState("dirty");
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(() => persist(value), 1200);
   }
 
-  function handleSaveNow() {
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    persist(content);
-  }
+  const MD_TOOLS = [
+    { k: "h2", label: "Heading", Icon: Heading2 },
+    { k: "bold", label: "Bold", Icon: Bold },
+    { k: "italic", label: "Italic", Icon: Italic },
+    { k: "list", label: "List", Icon: List },
+    { k: "quote", label: "Quote", Icon: Quote },
+    { k: "code", label: "Code", Icon: Code },
+    { k: "link", label: "Link", Icon: Link2 },
+  ] as const;
 
-  // Send raw notes to Poncho and replace the draft with clean MDX.
-  async function handleFormatWithPoncho() {
-    if (formatting || content.trim().length === 0) return;
+  async function formatWithPoncho() {
+    if (!content.trim() || formatting) return;
     setFormatting(true);
-    setFormatError("");
+    setError("");
     try {
       const res = await fetch("/api/poncho/format", {
         method: "POST",
@@ -91,71 +153,58 @@ export default function EditorPage() {
         body: JSON.stringify({ notes: content }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || "Poncho couldn't format these notes.");
-      }
-      if (typeof data.markdown === "string" && data.markdown.trim()) {
-        if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-        setContent(data.markdown);
-        setRestored(false);
-        persist(data.markdown);
-      } else {
-        throw new Error("Poncho returned an empty response.");
-      }
-    } catch (err) {
-      setFormatError(
-        err instanceof Error ? err.message : "Formatting failed."
-      );
+      if (!res.ok) throw new Error(data.error || "Poncho couldn't format that.");
+      if (typeof data.markdown === "string") setContent(data.markdown);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Poncho couldn't format that.");
     } finally {
       setFormatting(false);
     }
   }
 
-  function handleReset() {
-    if (
-      content.trim().length > 0 &&
-      !window.confirm("Replace the current draft with a fresh template?")
-    ) {
-      return;
-    }
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    const tpl = makeTemplate();
-    setContent(tpl);
-    setRestored(false);
+  async function create() {
+    if (!title.trim() || busy) return;
+    setBusy(true);
+    setError("");
     try {
-      window.localStorage.removeItem(DRAFT_KEY);
-    } catch {
-      /* ignore */
+      const res = await fetch("/api/nodes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind,
+          parentId,
+          title: title.trim(),
+          ...(kind === "entry"
+            ? {
+                content,
+                status,
+                tags: tags
+                  .split(",")
+                  .map((t) => t.trim())
+                  .filter(Boolean),
+              }
+            : {}),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Couldn't create that.");
+      const path: string[] | undefined = data.node?.path;
+      if (path?.length) {
+        router.push("/vault/" + path.map(encodeURIComponent).join("/"));
+      } else {
+        router.push("/vault");
+      }
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't create that.");
+      setBusy(false);
     }
-    setSaveState("idle");
   }
 
-  // Cmd/Ctrl+S saves the draft.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        handleSaveNow();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // handleSaveNow closes over latest content via state; re-bind on content change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
-
-  useEffect(() => {
-    return () => {
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    };
-  }, []);
-
-  const words = content
-    .replace(/^---[\s\S]*?---/, "") // drop frontmatter from the count
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
-  const lines = content.split("\n").length;
+  const optionClass = (selected: boolean) =>
+    `flex w-full items-center justify-between gap-2 py-1.5 pr-2.5 text-left text-sm transition-colors ${
+      selected ? "bg-accent/10 text-accent-soft" : "text-muted hover:bg-surface-2"
+    }`;
 
   return (
     <div className="flex min-h-dvh flex-col bg-base text-text">
@@ -189,168 +238,257 @@ export default function EditorPage() {
             /
           </span>
           <span className="font-mono text-xs uppercase tracking-[0.16em] text-faint">
-            Draft Editor
+            New
           </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <SaveIndicator state={saveState} restored={restored} />
-          <button
-            type="button"
-            onClick={handleFormatWithPoncho}
-            disabled={formatting || content.trim().length === 0}
-            title="Send your notes to Poncho and replace them with clean MDX"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-accent-dim/50 bg-accent/5 px-3 py-1.5 text-xs font-medium text-accent-soft transition-colors hover:border-accent-dim hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {formatting ? (
-              <span
-                aria-hidden
-                className="h-3 w-3 animate-spin rounded-full border-2 border-accent-soft/40 border-t-accent-soft"
-              />
-            ) : (
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M9.5 2.5 11 6l3.5 1.5L11 9l-1.5 3.5L8 9l-3.5-1.5L8 6z" />
-                <path d="M3.5 11.5 4 13l1.5.5L4 14l-.5 1.5L3 14l-1.5-.5L3 13z" />
-              </svg>
-            )}
-            {formatting ? "Formatting…" : "Format with Poncho"}
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="hidden rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-border-strong hover:text-text sm:inline-flex"
-          >
-            New template
-          </button>
-          <button
-            type="button"
-            onClick={handleSaveNow}
-            disabled={saveState === "saved" || saveState === "idle"}
-            className="rounded-lg bg-accent px-3.5 py-1.5 text-xs font-semibold text-base transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:bg-accent-dim disabled:text-base/70"
-          >
-            Save draft
-          </button>
         </div>
       </header>
 
-      {/* Poncho error surface */}
-      {formatError && (
-        <div
-          role="alert"
-          className="flex items-start justify-between gap-3 border-b border-accent-dim/40 bg-accent/[0.06] px-4 py-2 text-xs text-accent-soft sm:px-6"
-        >
-          <span className="leading-relaxed">{formatError}</span>
-          <button
-            type="button"
-            onClick={() => setFormatError("")}
-            aria-label="Dismiss"
-            className="shrink-0 font-mono text-muted transition-colors hover:text-text"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <h1 className="font-serif text-2xl text-text">Create</h1>
+        <p className="mt-1 mb-6 text-sm text-muted">
+          Add an entry or a folder to your vault.
+        </p>
 
-      {/* Editing surface */}
-      <main className="flex flex-1 flex-col">
-        <div className="flex flex-1">
-          {/* Gutter rail — quiet, archival */}
-          <div
-            aria-hidden
-            className="hidden w-12 shrink-0 select-none border-r border-border bg-surface/40 pt-6 text-right font-mono text-xs leading-[1.7] text-faint sm:block"
-          >
-            {Array.from({ length: Math.min(lines, 999) }).map((_, i) => (
-              <div key={i} className="pr-2">
-                {i + 1}
-              </div>
+        {/* 1. Pick type */}
+        <fieldset className="mb-6">
+          <legend className="mb-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+            Type
+          </legend>
+          <div className="inline-flex rounded-lg border border-border bg-surface-2 p-0.5">
+            {(
+              [
+                { k: "entry", label: "Entry", Icon: FilePlus },
+                { k: "folder", label: "Folder", Icon: FolderPlus },
+              ] as const
+            ).map(({ k, label, Icon }) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKind(k)}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                  kind === k
+                    ? "bg-accent/15 text-accent-soft"
+                    : "text-muted hover:text-text"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
             ))}
           </div>
+        </fieldset>
 
-          <textarea
-            value={content}
-            onChange={(e) => handleChange(e.target.value)}
-            spellCheck={false}
-            disabled={!ready}
-            aria-label="Entry content"
-            placeholder={ready ? "" : "Loading draft…"}
-            className="min-h-[60dvh] flex-1 resize-none bg-base px-5 py-6 font-mono text-sm leading-[1.7] text-text caret-accent outline-none transition-shadow placeholder:text-faint focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 sm:px-6"
+        {/* 2. Name it */}
+        <div className="mb-6">
+          <label className="mb-1.5 block font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+            {kind === "folder" ? "Folder name" : "Title"}
+          </label>
+          <input
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (error) setError("");
+            }}
+            autoFocus
+            placeholder={kind === "folder" ? "Folder name" : "Entry title"}
+            disabled={busy}
+            className="block w-full rounded-lg border border-border bg-surface-2 px-3 py-2 font-serif text-xl text-text outline-none transition-colors placeholder:text-faint hover:border-border-strong focus-visible:border-accent-dim focus-visible:ring-2 focus-visible:ring-accent/40"
           />
         </div>
-      </main>
 
-      {/* Guidance footer */}
-      <footer className="flex flex-col gap-2 border-t border-border bg-surface/60 px-4 py-2.5 text-xs text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p className="leading-relaxed">
-          Drafts autosave to this browser&apos;s local storage. To publish, copy
-          the content into{" "}
-          <code className="rounded bg-surface-2 px-1 py-0.5 font-mono text-[0.6875rem] text-accent-soft">
-            vault/[category]/[slug].mdx
-          </code>{" "}
-          or hand it to Claude Code.
-        </p>
-        <div className="flex shrink-0 items-center gap-3 font-mono text-[0.6875rem] text-faint">
-          <span>{words} words</span>
-          <span aria-hidden>·</span>
-          <span>{lines} lines</span>
-          <span aria-hidden>·</span>
-          <span>
-            <kbd className="rounded border border-border bg-surface-2 px-1 py-0.5 text-text">
-              ⌘S
-            </kbd>{" "}
-            save
-          </span>
+        {/* 2b. Destination folder (depth-first picker) */}
+        <div className="mb-6">
+          <p className="mb-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+            Destination folder
+          </p>
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
+            <button
+              type="button"
+              onClick={() => setParentId(null)}
+              className={optionClass(parentId === null) + " pl-2.5"}
+            >
+              <span className="flex items-center gap-1.5">
+                <Folder className="h-3.5 w-3.5 shrink-0 text-accent-dim" />
+                Top level
+              </span>
+              {parentId === null && <Check className="h-3.5 w-3.5 shrink-0" />}
+            </button>
+            {tree === null ? (
+              <p className="px-2.5 py-2 font-mono text-[0.6875rem] text-faint">
+                Loading…
+              </p>
+            ) : (
+              folderList.map(({ node: f, depth }) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setParentId(f.id)}
+                  style={{ paddingLeft: `${0.625 + depth * 0.85}rem` }}
+                  className={optionClass(parentId === f.id)}
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Folder className="h-3.5 w-3.5 shrink-0 text-accent-dim" />
+                    <span className="truncate">{f.title}</span>
+                  </span>
+                  {parentId === f.id && (
+                    <Check className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
         </div>
-      </footer>
+
+        {/* 3. Entry-only: content editor */}
+        {kind === "entry" && (
+          <>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+                Content
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowMd((v) => !v)}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faint transition-colors hover:text-accent-soft"
+              >
+                <Type className="h-3 w-3" />
+                {showMd ? "Done" : "Add markdown"}
+              </button>
+            </div>
+            {showMd && (
+              <div className="mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-surface-2 p-1">
+                {MD_TOOLS.map(({ k, label, Icon }) => (
+                  <Tooltip key={k}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={label}
+                        onClick={() => applyMarkdown(k)}
+                        className="rounded-md p-1.5 text-muted transition-colors hover:bg-accent/10 hover:text-accent-soft"
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">{label}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            )}
+            <textarea
+              ref={taRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={18}
+              disabled={busy}
+              placeholder="Write here — just plain text. Use “Add markdown” for headings, lists, links…"
+              className="mb-4 block w-full resize-y rounded-xl border border-border bg-surface px-4 py-3 text-sm leading-relaxed text-text outline-none transition-colors placeholder:text-faint hover:border-border-strong focus-visible:border-accent-dim focus-visible:ring-2 focus-visible:ring-accent/40"
+            />
+
+            <div className="mb-6 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+                  Tags (comma-separated)
+                </label>
+                <input
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="lore, timeline"
+                  disabled={busy}
+                  className="block w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none transition-colors placeholder:text-faint hover:border-border-strong focus-visible:border-accent-dim focus-visible:ring-2 focus-visible:ring-accent/40"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint">
+                  Status
+                </label>
+                <div className="inline-flex rounded-lg border border-border bg-surface-2 p-0.5">
+                  {(["draft", "published"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setStatus(s)}
+                      disabled={busy}
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                        status === s
+                          ? "bg-accent/15 text-accent-soft"
+                          : "text-muted hover:text-text"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {error && <p className="mb-3 text-xs text-accent-soft">{error}</p>}
+
+        {/* 4. Create */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={create}
+            disabled={busy || !title.trim()}
+            className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-base transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:bg-accent-dim disabled:text-base/70"
+          >
+            {busy
+              ? "Creating…"
+              : kind === "folder"
+                ? "Create folder"
+                : "Create entry"}
+          </button>
+          {kind === "entry" && (
+            <button
+              type="button"
+              onClick={formatWithPoncho}
+              disabled={formatting || busy || !content.trim()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs font-medium text-muted transition-colors hover:border-accent-dim hover:text-accent-soft disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {formatting ? "Formatting…" : "Format with Poncho"}
+            </button>
+          )}
+        </div>
+
+        {/* Help — collapsible, quiet */}
+        <div className="mt-10 border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={() => setHelpOpen((v) => !v)}
+            aria-expanded={helpOpen}
+            className="flex items-center gap-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faint transition-colors hover:text-muted"
+          >
+            <ChevronRight
+              className={`h-3.5 w-3.5 transition-transform ${
+                helpOpen ? "rotate-90" : ""
+              }`}
+            />
+            How the vault works
+          </button>
+          {helpOpen && (
+            <ul className="mt-3 space-y-2 pl-5 text-xs leading-relaxed text-muted">
+              <li>
+                Entries and folders live in your private, Neon-backed vault,
+                partitioned to your account.
+              </li>
+              <li>
+                Nest folders as deep as you like; drag items in the sidebar to
+                reorganize.
+              </li>
+              <li>
+                Edit any entry in place from its page — write plain text and use
+                “Add markdown” for formatting.
+              </li>
+              <li>
+                Ask Poncho to research, write, or format; from a chat, “Save to
+                Vault” drops the result into any folder.
+              </li>
+            </ul>
+          )}
+        </div>
+      </main>
     </div>
-  );
-}
-
-function SaveIndicator({
-  state,
-  restored,
-}: {
-  state: SaveState;
-  restored: boolean;
-}) {
-  let label: string;
-  let dotClass: string;
-
-  switch (state) {
-    case "saving":
-      label = "Saving…";
-      dotClass = "bg-accent-dim animate-pulse";
-      break;
-    case "saved":
-      label = "Saved locally";
-      dotClass = "bg-accent";
-      break;
-    case "dirty":
-      label = "Unsaved changes";
-      dotClass = "bg-faint";
-      break;
-    default:
-      label = restored ? "Draft restored" : "Ready";
-      dotClass = "bg-faint";
-  }
-
-  return (
-    <span
-      role="status"
-      aria-live="polite"
-      className="flex items-center gap-1.5 font-mono text-[0.6875rem] text-muted"
-    >
-      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
-      {label}
-    </span>
   );
 }

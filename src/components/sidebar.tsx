@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { CairnMark } from "@/components/cairn-mark";
+import { SidebarCollapseButton } from "@/components/sidebar-collapse-button";
 import { getCurrentUserId } from "@/lib/auth/current-user";
 import { getTree, type TreeNode } from "@/lib/repo/nodes";
 
@@ -26,8 +27,8 @@ export async function Sidebar() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Wordmark */}
-      <div className="px-5 pt-6 pb-5">
+      {/* Wordmark + collapse */}
+      <div className="flex items-center justify-between px-5 pt-6 pb-5">
         <Link
           href="/"
           className="group inline-flex items-center gap-2"
@@ -38,6 +39,7 @@ export async function Sidebar() {
             CAIRN
           </span>
         </Link>
+        <SidebarCollapseButton />
       </div>
 
       <SidebarNav tree={tree} />

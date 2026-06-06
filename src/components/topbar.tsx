@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { PanelLeft, PanelLeftClose } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { SEARCH_OPEN_EVENT } from "@/components/command-palette";
 
 /**
@@ -70,20 +70,16 @@ export function Topbar({
         )}
       </div>
 
-      {/* Desktop sidebar collapse toggle (lg+ only) */}
-      {onToggleSidebar && (
+      {/* Expand affordance — only shown when the desktop rail is collapsed
+          (collapsing happens from a button inside the sidebar itself). */}
+      {onToggleSidebar && sidebarCollapsed && (
         <button
           type="button"
           onClick={onToggleSidebar}
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-pressed={sidebarCollapsed}
+          aria-label="Expand sidebar"
           className="hidden h-9 w-9 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-accent-soft lg:grid"
         >
-          {sidebarCollapsed ? (
-            <PanelLeft aria-hidden className="h-[1.15rem] w-[1.15rem]" />
-          ) : (
-            <PanelLeftClose aria-hidden className="h-[1.15rem] w-[1.15rem]" />
-          )}
+          <PanelLeft aria-hidden className="h-[1.15rem] w-[1.15rem]" />
         </button>
       )}
 

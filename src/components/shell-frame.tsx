@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Topbar } from "@/components/topbar";
+import { TOGGLE_SIDEBAR_EVENT } from "@/components/sidebar-collapse-button";
 
 const SIDEBAR_WIDTH = "16rem"; // w-64
 const SIDEBAR_WIDTH_PX = 256; // 16rem
@@ -70,6 +71,23 @@ export function ShellFrame({
       return next;
     });
   }
+
+  // The in-sidebar collapse button dispatches a window event (no prop drilling
+  // through the server-rendered sidebar).
+  useEffect(() => {
+    const onToggle = () =>
+      setCollapsed((prev) => {
+        const next = !prev;
+        try {
+          localStorage.setItem(COLLAPSE_KEY, String(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+    window.addEventListener(TOGGLE_SIDEBAR_EVENT, onToggle);
+    return () => window.removeEventListener(TOGGLE_SIDEBAR_EVENT, onToggle);
+  }, []);
 
   // Close the mobile drawer on navigation.
   useEffect(() => {

@@ -6,8 +6,20 @@ import { FolderPlus, FilePlus, Plus, X } from "lucide-react";
 
 type Kind = "folder" | "entry";
 
-/** Inline "new folder / new entry" control for the current location. */
-export function CreateNode({ parentId }: { parentId: string | null }) {
+/**
+ * Inline "new folder / new entry" control for the current location.
+ * Pass `defaultKind` (+ `label`) to render a single button that opens straight
+ * to that kind — used for "New section" (a top-level folder).
+ */
+export function CreateNode({
+  parentId,
+  defaultKind,
+  label = "New",
+}: {
+  parentId: string | null;
+  defaultKind?: Kind;
+  label?: string;
+}) {
   const router = useRouter();
   const [kind, setKind] = useState<Kind | null>(null);
   const [title, setTitle] = useState("");
@@ -46,6 +58,22 @@ export function CreateNode({ parentId }: { parentId: string | null }) {
   }
 
   if (!kind) {
+    if (defaultKind) {
+      return (
+        <button
+          type="button"
+          onClick={() => open(defaultKind)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-accent-dim hover:bg-accent/10 hover:text-accent-soft"
+        >
+          {defaultKind === "folder" ? (
+            <FolderPlus className="h-3.5 w-3.5" />
+          ) : (
+            <FilePlus className="h-3.5 w-3.5" />
+          )}
+          {label}
+        </button>
+      );
+    }
     return (
       <div className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 p-0.5">
         <span className="flex items-center gap-1 pl-2 pr-0.5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faint">
