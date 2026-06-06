@@ -117,17 +117,23 @@ export async function POST(request: NextRequest) {
             );
             if (fresh.length) {
               fresh.forEach((m) => seenMedia.add(m.url));
-              void recordArtifacts(
-                ownerId,
-                fresh.map((m) => ({
-                  chatId: snap.chatId,
-                  kind: m.kind,
-                  url: m.url,
-                  mimeType: m.mimeType,
-                  title: m.title,
-                  description: m.description,
-                }))
-              );
+              // Await so the insert lands before the stream closes (a late
+              // fire-and-forget write was being abandoned → 0 captured).
+              try {
+                await recordArtifacts(
+                  ownerId,
+                  fresh.map((m) => ({
+                    chatId: snap.chatId,
+                    kind: m.kind,
+                    url: m.url,
+                    mimeType: m.mimeType,
+                    title: m.title,
+                    description: m.description,
+                  }))
+                );
+              } catch {
+                /* capture is best-effort; don't break the stream */
+              }
             }
           }
           send("progress", snap);
@@ -141,16 +147,20 @@ export async function POST(request: NextRequest) {
               snap.chatId &&
               /<[a-z!]/i.test(result)
             ) {
-              void recordArtifacts(ownerId, [
-                {
-                  chatId: snap.chatId,
-                  kind: "html",
-                  url: `cairn:html:${snap.chatId}`,
-                  content: result,
-                  mimeType: "text/html",
-                  title,
-                },
-              ]);
+              try {
+                await recordArtifacts(ownerId, [
+                  {
+                    chatId: snap.chatId,
+                    kind: "html",
+                    url: `cairn:html:${snap.chatId}`,
+                    content: result,
+                    mimeType: "text/html",
+                    title,
+                  },
+                ]);
+              } catch {
+                /* best-effort */
+              }
             }
           } else if (snap.status === "timeout") {
             send("timeout", { partial: stepsToText(snap.steps) });
