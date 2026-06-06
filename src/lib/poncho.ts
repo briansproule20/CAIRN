@@ -529,11 +529,16 @@ function kindFromUrl(url: string): "image" | "audio" | "video" | null {
  */
 export function extractMedia(messages: unknown): MediaArtifact[] {
   if (!Array.isArray(messages)) return [];
+  // Only the GENERATED output — not arbitrary image URLs from tool calls
+  // (search-result thumbnails, favicons, scraped pages). Generated media is
+  // hosted on a provider blob under a /generated|/outputs|/media path.
   const raw = JSON.stringify(messages);
   const urls = [...new Set(raw.match(/https?:\/\/[^\s"'\\)]+/g) ?? [])].filter(
     (u) =>
-      kindFromUrl(u) !== null ||
-      /public\.blob\.vercel-storage\.com\/(generated|cairn|media)/i.test(u)
+      /public\.blob\.vercel-storage\.com\/(generated|cairn|media)\//i.test(u) ||
+      /\/(generated|outputs?|media)\/[^/?#]+\.(png|jpe?g|webp|gif|mp4|webm|mov|mp3|wav|m4a|ogg)/i.test(
+        u
+      )
   );
   if (urls.length === 0) return [];
 
