@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Settings, ChevronDown, Home } from "lucide-react";
+import { Settings, ChevronDown, Home, Info, X } from "lucide-react";
 import { SidebarTree } from "@/components/sidebar-tree";
 import type { TreeNode } from "@/lib/repo/nodes";
 
@@ -62,6 +62,13 @@ export function SidebarNav({ tree }: { tree: TreeNode[] }) {
             icon={<TagIcon />}
           >
             Tags
+          </NavRow>
+          <NavRow
+            href="/info"
+            active={pathname === "/info"}
+            icon={<Info className="h-3.5 w-3.5 shrink-0" />}
+          >
+            Info
           </NavRow>
           <NavRow
             href="/settings"
@@ -186,6 +193,19 @@ function ChatsNav({ pathname }: { pathname: string }) {
     };
   }, []);
 
+  // Stop tracking a chat in the CAIRN DB (the Poncho conversation itself is
+  // untouched). Optimistic — if the request fails it returns on the next poll.
+  async function remove(id: string) {
+    setChats((prev) => prev?.filter((c) => c.id !== id) ?? prev);
+    try {
+      await fetch(`/api/poncho/chats/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+    } catch {
+      /* will reappear on the next poll */
+    }
+  }
+
   if (chats === null) {
     return (
       <p className="px-2 py-1 font-mono text-[0.6875rem] text-faint">Loading…</p>
@@ -205,11 +225,11 @@ function ChatsNav({ pathname }: { pathname: string }) {
       {chats.slice(0, 15).map((chat) => {
         const active = pathname === `/chats/${chat.id}`;
         return (
-          <li key={chat.id}>
+          <li key={chat.id} className="group/chat relative">
             <Link
               href={`/chats/${chat.id}`}
               aria-current={active ? "page" : undefined}
-              className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors ${
+              className={`flex items-center gap-2 rounded-lg py-1.5 pl-2 pr-7 text-sm transition-colors ${
                 active
                   ? "bg-accent/10 text-accent-soft"
                   : "text-muted hover:bg-surface-2 hover:text-text"
@@ -218,11 +238,22 @@ function ChatsNav({ pathname }: { pathname: string }) {
               <span
                 aria-hidden
                 className={`h-1 w-1 shrink-0 rounded-full transition-colors ${
-                  active ? "bg-accent" : "bg-border-strong group-hover:bg-accent-dim"
+                  active
+                    ? "bg-accent"
+                    : "bg-border-strong group-hover/chat:bg-accent-dim"
                 }`}
               />
               <span className="truncate">{chat.title}</span>
             </Link>
+            <button
+              type="button"
+              onClick={() => remove(chat.id)}
+              aria-label={`Remove ${chat.title}`}
+              title="Remove from CAIRN"
+              className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded p-1 text-faint transition-colors hover:bg-surface-2 hover:text-accent-soft group-hover/chat:block"
+            >
+              <X className="h-3 w-3" />
+            </button>
           </li>
         );
       })}

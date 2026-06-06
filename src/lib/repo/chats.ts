@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { chats } from "@/lib/db/schema";
 
@@ -22,6 +22,18 @@ export async function recordChat(
       mode: chat.mode,
     })
     .onConflictDoNothing();
+}
+
+export async function deleteChat(
+  ownerId: string,
+  ponchoChatId: string
+): Promise<void> {
+  const db = getDb();
+  await db
+    .delete(chats)
+    .where(
+      and(eq(chats.ownerId, ownerId), eq(chats.ponchoChatId, ponchoChatId))
+    );
 }
 
 export interface ChatListItem {

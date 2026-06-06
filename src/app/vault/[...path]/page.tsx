@@ -8,6 +8,7 @@ import { NodeBrowser } from "@/components/vault/node-browser";
 import { CreateNode } from "@/components/vault/create-node";
 import { EntryEditor } from "@/components/vault/entry-editor";
 import { FolderActions } from "@/components/vault/folder-actions";
+import { FolderTitle } from "@/components/vault/folder-title";
 import { getCurrentUserId } from "@/lib/auth/current-user";
 import {
   getNodeBySlugPath,
@@ -75,7 +76,7 @@ export default async function NodePathPage({
     return (
       <AppShell title={node.title} breadcrumb={breadcrumbEl}>
         <header className="mb-8 flex items-start justify-between gap-4">
-          <h1 className="font-serif text-3xl text-text">{node.title}</h1>
+          <FolderTitle id={node.id} title={node.title} />
           <div className="flex shrink-0 items-center gap-2">
             <CreateNode parentId={node.id} />
             <FolderActions
