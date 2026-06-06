@@ -14,6 +14,7 @@ import {
   listChildren,
   childCount,
   breadcrumb,
+  getSubtree,
 } from "@/lib/repo/nodes";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +67,10 @@ export default async function NodePathPage({
     const overview = node.content?.trim()
       ? await serialize(node.content).catch(() => null)
       : null;
+    // Subtree powers the inline tree view — only offered when there are
+    // nested folders to expand.
+    const subtree = await getSubtree(ownerId, node.id);
+    const hasSubfolders = subtree.some((n) => n.kind === "folder");
 
     return (
       <AppShell title={node.title} breadcrumb={breadcrumbEl}>
@@ -96,7 +101,11 @@ export default async function NodePathPage({
             a folder or entry.
           </p>
         ) : (
-          <NodeBrowser items={items} basePath={basePath} />
+          <NodeBrowser
+            items={items}
+            basePath={basePath}
+            subtree={hasSubfolders ? subtree : undefined}
+          />
         )}
       </AppShell>
     );

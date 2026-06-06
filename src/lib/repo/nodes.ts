@@ -312,6 +312,25 @@ export async function getTree(ownerId: string): Promise<TreeNode[]> {
     .orderBy(...childOrder);
 }
 
+/** Flat list of a folder's full subtree (descendants) — for inline browsing. */
+export async function getSubtree(
+  ownerId: string,
+  rootId: string
+): Promise<TreeNode[]> {
+  const db = getDb();
+  return db
+    .select({
+      id: nodes.id,
+      parentId: nodes.parentId,
+      slug: nodes.slug,
+      title: nodes.title,
+      kind: nodes.kind,
+    })
+    .from(nodes)
+    .where(and(eq(nodes.ownerId, ownerId), sql`${rootId} = any(${nodes.path})`))
+    .orderBy(...childOrder);
+}
+
 /** Resolve a node's full slug path (ancestors → self) for building /vault URLs. */
 export async function slugPathFor(
   ownerId: string,
