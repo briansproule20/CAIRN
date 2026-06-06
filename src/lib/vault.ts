@@ -73,6 +73,27 @@ export function getAllEntries(): VaultEntry[] {
   return getCategories().flatMap(getEntriesByCategory);
 }
 
+export function getAllTags(): { tag: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const entry of getAllEntries()) {
+    for (const tag of entry.tags) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+}
+
+export function getEntriesByTag(tag: string): VaultEntry[] {
+  const t = tag.toLowerCase();
+  return getAllEntries()
+    .filter((e) => e.tags.some((x) => x.toLowerCase() === t))
+    .sort((a, b) =>
+      (b.updated || b.created || "").localeCompare(a.updated || a.created || "")
+    );
+}
+
 export function searchEntries(query: string): VaultEntry[] {
   const q = query.toLowerCase();
   return getAllEntries().filter(

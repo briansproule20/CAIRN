@@ -1,35 +1,49 @@
-import { Sidebar } from "@/components/sidebar";
-import { EntryCard } from "@/components/entry-card";
-import { getCategories, getEntriesByCategory } from "@/lib/vault";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AppShell } from "@/components/app-shell";
+import { CategoryFilter } from "@/components/category-filter";
+import { getCategories, getEntriesByCategory } from "@/lib/vault";
 
 export function generateStaticParams() {
   return getCategories().map((category) => ({ category }));
 }
 
-export default async function CategoryPage({ params }: { params: Promise<{ category: string }> }) {
+export default async function CategoryPage({
+  params,
+}: {
+  params: Promise<{ category: string }>;
+}) {
   const { category } = await params;
-  const categories = getCategories();
-  if (!categories.includes(category)) notFound();
+  if (!getCategories().includes(category)) notFound();
 
   const entries = getEntriesByCategory(category);
+  const label = category.replace(/-/g, " ");
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 px-8 py-8 max-w-4xl">
-        <div className="space-y-1 mb-8">
-          <h1 className="text-xl font-semibold capitalize">{category.replace(/-/g, " ")}</h1>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            {entries.length} {entries.length === 1 ? "entry" : "entries"}
+    <AppShell
+      title={<span className="capitalize">{label}</span>}
+      breadcrumb={
+        <Link href="/" className="text-muted transition-colors hover:text-text">
+          Vault
+        </Link>
+      }
+    >
+      <header className="mb-8 space-y-1.5">
+        <h1 className="font-serif text-3xl capitalize text-text">{label}</h1>
+        <p className="font-mono text-xs text-muted">
+          {entries.length} {entries.length === 1 ? "entry" : "entries"}
+        </p>
+      </header>
+
+      {entries.length === 0 ? (
+        <div className="rounded-xl border border-border bg-surface p-8 text-center">
+          <p className="text-sm text-muted">
+            No entries in this category yet.
           </p>
         </div>
-        <div className="grid gap-2">
-          {entries.map((entry) => (
-            <EntryCard key={entry.slug} entry={entry} />
-          ))}
-        </div>
-      </main>
-    </div>
+      ) : (
+        <CategoryFilter entries={entries} />
+      )}
+    </AppShell>
   );
 }
