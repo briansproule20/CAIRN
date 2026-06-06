@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { FolderPlus, FilePlus, Plus, X } from "lucide-react";
 
@@ -104,10 +103,8 @@ export function CreateNode({
     <>
       {trigger}
 
-      {kind &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {kind && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div
               className="absolute inset-0 bg-black/60 backdrop-blur-sm [animation:cairn-fade-in_140ms_ease-out]"
               onClick={close}
@@ -170,9 +167,8 @@ export function CreateNode({
                 </button>
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+          </div>
+      )}
     </>
   );
 }

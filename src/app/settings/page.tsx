@@ -92,6 +92,22 @@ export default async function SettingsPage() {
           </section>
         )}
 
+        {/* Admin — owner only */}
+        {owner && (
+          <section>
+            <h2 className={sectionLabel}>Admin</h2>
+            <p className="mb-3 text-sm leading-relaxed text-muted">
+              Owner-only console: every account and invite code.
+            </p>
+            <a
+              href="/admin"
+              className="inline-flex items-center gap-2 rounded-lg border border-accent-dim/50 bg-accent/5 px-4 py-2 text-sm font-medium text-accent-soft transition-colors hover:border-accent-dim hover:bg-accent/10"
+            >
+              Open admin console
+            </a>
+          </section>
+        )}
+
         {/* Export */}
         <section>
           <h2 className={sectionLabel}>Export</h2>
