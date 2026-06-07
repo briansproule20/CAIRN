@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, File, Folder } from "lucide-react";
+import { Check, ChevronDown, File, Folder } from "lucide-react";
 import { ChatActions } from "@/components/chat-actions";
 import { HtmlSave } from "@/components/html-save";
 import { MediaSave } from "@/components/media-save";
@@ -178,6 +178,7 @@ export function PonchoWorkspace() {
   // Build-mode state: design language, vault context selection, and the tree.
   const [designLanguage, setDesignLanguage] = useState("");
   const [contextIds, setContextIds] = useState<Set<string>>(new Set());
+  const [contextOpen, setContextOpen] = useState(false);
   const [tree, setTree] = useState<TreeNode[] | null>(null);
 
   const isMedia = mode === "media";
@@ -431,56 +432,94 @@ export function PonchoWorkspace() {
           </div>
 
           <div className="space-y-1.5">
-            <p className="flex items-center justify-between font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faint">
-              <span>
-                Vault context{" "}
-                <span className="normal-case tracking-normal text-faint/70">
-                  (optional)
-                </span>
+            <label className="block font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faint">
+              Vault context{" "}
+              <span className="normal-case tracking-normal text-faint/70">
+                (optional)
               </span>
-              {contextIds.size > 0 && (
-                <span className="text-accent-soft">{contextIds.size} selected</span>
-              )}
-            </p>
-            <div className="max-h-44 overflow-y-auto rounded-lg border border-border bg-surface">
-              {tree === null ? (
-                <p className="px-2.5 py-2 font-mono text-[0.6875rem] text-faint">
-                  Loading…
-                </p>
-              ) : nodeList.length === 0 ? (
-                <p className="px-2.5 py-2 font-mono text-[0.6875rem] text-faint">
-                  Vault is empty.
-                </p>
-              ) : (
-                nodeList.map(({ node: n, depth }) => {
-                  const selected = contextIds.has(n.id);
-                  return (
-                    <button
-                      key={n.id}
-                      type="button"
-                      role="checkbox"
-                      aria-checked={selected}
-                      disabled={loading}
-                      onClick={() => toggleContext(n.id)}
-                      style={{ paddingLeft: `${0.625 + depth * 0.85}rem` }}
-                      className={`flex w-full items-center justify-between gap-2 py-1.5 pr-2.5 text-left text-sm transition-colors disabled:opacity-50 ${
-                        selected
-                          ? "bg-accent/10 text-accent-soft"
-                          : "text-muted hover:bg-surface-2"
-                      }`}
-                    >
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        {n.kind === "folder" ? (
-                          <Folder className="h-3.5 w-3.5 shrink-0 text-accent-dim" />
-                        ) : (
-                          <File className="h-3.5 w-3.5 shrink-0 text-faint" />
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setContextOpen((o) => !o)}
+                disabled={loading}
+                aria-expanded={contextOpen}
+                className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm transition-colors hover:border-border-strong focus-visible:border-accent-dim focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-60"
+              >
+                <span className={contextIds.size > 0 ? "text-text" : "text-faint"}>
+                  {contextIds.size > 0
+                    ? `${contextIds.size} selected`
+                    : "Select folders or entries…"}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-faint transition-transform duration-150 ${
+                    contextOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {contextOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setContextOpen(false)}
+                  />
+                  <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border-strong bg-surface py-1 shadow-2xl shadow-black/50 [animation:cairn-rise-in_140ms_ease-out]">
+                    {tree === null ? (
+                      <p className="px-2.5 py-2 font-mono text-[0.6875rem] text-faint">
+                        Loading…
+                      </p>
+                    ) : nodeList.length === 0 ? (
+                      <p className="px-2.5 py-2 font-mono text-[0.6875rem] text-faint">
+                        Vault is empty.
+                      </p>
+                    ) : (
+                      <>
+                        {contextIds.size > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setContextIds(new Set())}
+                            className="mb-1 flex w-full items-center px-2.5 py-1.5 text-left font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faint transition-colors hover:text-accent-soft"
+                          >
+                            Clear selection
+                          </button>
                         )}
-                        <span className="truncate">{n.title}</span>
-                      </span>
-                      {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
-                    </button>
-                  );
-                })
+                        {nodeList.map(({ node: n, depth }) => {
+                          const selected = contextIds.has(n.id);
+                          return (
+                            <button
+                              key={n.id}
+                              type="button"
+                              role="checkbox"
+                              aria-checked={selected}
+                              onClick={() => toggleContext(n.id)}
+                              style={{
+                                paddingLeft: `${0.625 + depth * 0.85}rem`,
+                              }}
+                              className={`flex w-full items-center justify-between gap-2 py-1.5 pr-2.5 text-left text-sm transition-colors ${
+                                selected
+                                  ? "bg-accent/10 text-accent-soft"
+                                  : "text-muted hover:bg-surface-2"
+                              }`}
+                            >
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                {n.kind === "folder" ? (
+                                  <Folder className="h-3.5 w-3.5 shrink-0 text-accent-dim" />
+                                ) : (
+                                  <File className="h-3.5 w-3.5 shrink-0 text-faint" />
+                                )}
+                                <span className="truncate">{n.title}</span>
+                              </span>
+                              {selected && (
+                                <Check className="h-3.5 w-3.5 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
